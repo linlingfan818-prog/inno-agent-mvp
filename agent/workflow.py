@@ -56,4 +56,7 @@ path_map = {
     "report_node": "report_node",
     END: END
 }
-workflow.add_conditional_edges("coach_node", route_after_node, path_map)
+workflow.add_conditional_edges("coach_node", route_after_node, path_map)
+workflow.add_conditional_edges("pm_node", route_after_node, path_map)
+workflow.add_conditional_edges("expert_node", route_after_node, path_map)
+workflow.add_edge("report_node", END)
