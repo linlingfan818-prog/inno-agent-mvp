@@ -24,6 +24,33 @@
         .summary-card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e4e4e7; box-shadow: 0 1px 2px rgba(0,0,0,0.05);}
         .summary-card h3 { margin-top: 0; font-size: 14px; color: #52525b; }
         .summary-content { font-size: 14px; color: #18181b; min-height: 40px;}
+        
+        /* 4. 选项卡片样式 */
+        .option-card {
+            background-color: #fff7ed;
+            border: 1px solid #fdba74;
+            padding: 12px;
+            margin-top: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .option-card:hover {
+            background-color: #ffedd5;
+            border-color: #f97316;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .option-badge {
+            background-color: #ea580c;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
     </style>
 </head>
 <body>
@@ -81,6 +108,7 @@
             inputEl.value = '';
 
             const aiBubble = appendMessage('', 'doraoumen');
+            let fullAiResponse = "";
 
             try {
                 // 【⚠️这里最重要：把下面的 IP 换成你跑 Docker 的服务器 IP】
@@ -112,7 +140,8 @@
 
                             // 类别 1: 文本流打字
                             if (eventType === 'message') {
-                                aiBubble.innerHTML += data.chunk;
+                                fullAiResponse += data.chunk;
+                                aiBubble.innerHTML = formatChatText(fullAiResponse);
                             } 
                             // 类别 2: 截取并更新右侧画布
                             else if (eventType === 'state_update') {
@@ -153,6 +182,35 @@
             history.appendChild(div);
             history.scrollTop = history.scrollHeight;
             return div;
+        }
+
+        // --- 文本解析器：支持换行、粗体和选项卡片渲染 ---
+        function formatChatText(text) {
+            // 1. 转义基本的HTML以防格式错乱，同时将换行符转为 <br>
+            let html = text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/\n/g, "<br>");
+            
+            // 2. 简易粗体替换 **text**
+            html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+
+            // 3. 替换 [选项X] 为可点击的卡片 (兼容末尾带 <br> 或直接结束的情况)
+            html = html.replace(/\[选项([A-Z])\](.*?)(\<br\>|$)/g, function(match, letter, content, endBr) {
+                const cleanContent = content.trim();
+                const safeContentForClick = cleanContent.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                return `<div class="option-card" onclick="selectOption('${letter}: ${safeContentForClick}')">
+                          <span class="option-badge">${letter}</span> ${cleanContent}
+                        </div>${endBr}`;
+            });
+
+            return html;
+        }
+
+        function selectOption(text) {
+            document.getElementById('userInput').value = text;
+            sendMessage();
         }
     </script>
 </body>
