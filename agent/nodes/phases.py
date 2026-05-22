@@ -105,11 +105,14 @@ async def expert_node(state: AgentState, config: RunnableConfig):
     return {"messages": [response]}
 
 # --- Report Node ---
-from schemas import CanvasData, ProposalData
-
 class FinalReport(BaseModel):
-    canvas: CanvasData
-    proposal: ProposalData
+    why: str = Field(description="核心痛点(Why)")
+    what: str = Field(description="产品落地方案(What)")
+    cost: str = Field(description="预算(数字或区间，例如 '130-155')")
+    m1: str = Field(description="里程碑1的核心任务")
+    m2: str = Field(description="里程碑2的核心任务")
+    m3: str = Field(description="里程碑3的核心任务")
+    m4: str = Field(description="里程碑4的核心任务")
 
 async def report_node(state: AgentState, config: RunnableConfig):
     api_key = config.get("configurable", {}).get("api_key")
@@ -119,21 +122,21 @@ async def report_node(state: AgentState, config: RunnableConfig):
     llm_for_report = llm.bind(temperature=0.0)
     extractor = llm_for_report.with_structured_output(FinalReport)
     
-    prompt = "分析以上的完整对话历史，提取并生成最终的业务画布和技术立项报告。"
+    prompt = "分析以上的完整对话历史，提取并生成最终的业务画布和技术立项报告。请严格按照字段要求提取。"
     sys_msg = SystemMessage(content=prompt)
     
     result = await extractor.ainvoke([sys_msg] + state["messages"])
     
     return {
-        "why": result.canvas.why,
-        "what": result.canvas.what,
+        "why": result.why,
+        "what": result.what,
         "how": {
-            "cost": result.proposal.cost,
+            "cost": result.cost,
             "milestones": {
-                "M1": result.proposal.m1, 
-                "M2": result.proposal.m2,
-                "M3": result.proposal.m3,
-                "M4": result.proposal.m4
+                "M1": result.m1, 
+                "M2": result.m2,
+                "M3": result.m3,
+                "M4": result.m4
             }
         },
         "current_phase": "FINISHED"
