@@ -19,26 +19,26 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
             compiled_graph = workflow.compile(checkpointer=checkpointer)
             
             async for event in compiled_graph.astream_events(inputs, config=config, version="v2"):
-            kind = event["event"]
-            node_name = event.get("name", "")
+                kind = event["event"]
+                node_name = event.get("name", "")
 
-            # 通道A：文字打字机流
-            if kind == "on_chat_model_stream":
-                chunk = event["data"]["chunk"]
-                if isinstance(chunk, AIMessageChunk) and chunk.content:
-                    data = json.dumps({"chunk": chunk.content}, ensure_ascii=False)
-                    yield f"event: message\ndata: {data}\n\n"
+                # 通道A：文字打字机流
+                if kind == "on_chat_model_stream":
+                    chunk = event["data"]["chunk"]
+                    if isinstance(chunk, AIMessageChunk) and chunk.content:
+                        data = json.dumps({"chunk": chunk.content}, ensure_ascii=False)
+                        yield f"event: message\ndata: {data}\n\n"
 
-            # 通道B：推送最新的状态 (包含当前阶段和最后生成的数据)
-            elif kind == "on_node_end" and node_name in ["coach_node", "pm_node", "expert_node", "report_node"]:
-                state = compiled_graph.get_state(config).values
-                state_data = {
-                    "current_phase": state.get("current_phase", "COACH"),
-                    "why": state.get("why"),
-                    "what": state.get("what"),
-                    "how": state.get("how")
-                }
-                yield f"event: state_update\ndata: {json.dumps(state_data, ensure_ascii=False)}\n\n"
+                # 通道B：推送最新的状态 (包含当前阶段和最后生成的数据)
+                elif kind == "on_node_end" and node_name in ["coach_node", "pm_node", "expert_node", "report_node"]:
+                    state = await compiled_graph.aget_state(config)
+                    state_data = {
+                        "current_phase": state.values.get("current_phase", "COACH"),
+                        "why": state.values.get("why"),
+                        "what": state.values.get("what"),
+                        "how": state.values.get("how")
+                    }
+                    yield f"event: state_update\ndata: {json.dumps(state_data, ensure_ascii=False)}\n\n"
     except Exception as e:
         import traceback
         err_str = traceback.format_exc()
