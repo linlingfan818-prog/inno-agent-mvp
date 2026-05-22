@@ -1,8 +1,9 @@
 import os
 from langchain_core.messages import SystemMessage, ToolMessage
 from pydantic import BaseModel, Field
+from langchain_core.runnables.config import RunnableConfig
 from agent.state import AgentState
-from agent.config import llm
+from agent.config import initialize_llm
 
 # --- Phase Transition Tools ---
 # These are the tools the LLM can call to trigger a state transition after user confirmation.
@@ -29,9 +30,12 @@ def get_sys_prompt(filename: str) -> str:
 
 # --- Phase Nodes ---
 
-async def coach_node(state: AgentState):
+async def coach_node(state: AgentState, config: RunnableConfig):
     sys_content = get_sys_prompt("coach.md")
     sys_msg = SystemMessage(content=sys_content)
+    
+    api_key = config.get("configurable", {}).get("api_key")
+    llm = initialize_llm(custom_api_key=api_key)
     
     llm_with_tools = llm.bind_tools([TransitionToPM])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
@@ -52,9 +56,12 @@ async def coach_node(state: AgentState):
         
     return {"messages": [response]}
 
-async def pm_node(state: AgentState):
+async def pm_node(state: AgentState, config: RunnableConfig):
     sys_content = get_sys_prompt("pm.md")
     sys_msg = SystemMessage(content=sys_content)
+    
+    api_key = config.get("configurable", {}).get("api_key")
+    llm = initialize_llm(custom_api_key=api_key)
     
     llm_with_tools = llm.bind_tools([TransitionToExpert])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
@@ -73,9 +80,12 @@ async def pm_node(state: AgentState):
         
     return {"messages": [response]}
 
-async def expert_node(state: AgentState):
+async def expert_node(state: AgentState, config: RunnableConfig):
     sys_content = get_sys_prompt("expert.md")
     sys_msg = SystemMessage(content=sys_content)
+    
+    api_key = config.get("configurable", {}).get("api_key")
+    llm = initialize_llm(custom_api_key=api_key)
     
     llm_with_tools = llm.bind_tools([TransitionToDone])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
@@ -101,7 +111,10 @@ class FinalReport(BaseModel):
     canvas: CanvasData
     proposal: ProposalData
 
-async def report_node(state: AgentState):
+async def report_node(state: AgentState, config: RunnableConfig):
+    api_key = config.get("configurable", {}).get("api_key")
+    llm = initialize_llm(custom_api_key=api_key)
+
     # Use structured output to summarize the entire conversation into the final data
     llm_for_report = llm.bind(temperature=0.0)
     extractor = llm_for_report.with_structured_output(FinalReport)

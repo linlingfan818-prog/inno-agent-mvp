@@ -1,8 +1,11 @@
 from pydantic import BaseModel, Field
 
+from typing import Optional
+
 class ChatPayload(BaseModel):
     message: str
-    thread_id: str
+    session_id: str
+    api_key: Optional[str] = None
 
 class CanvasData(BaseModel):
     why: str = Field(description="一句话总结业务痛点或矛盾")

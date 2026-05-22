@@ -7,8 +7,8 @@ from schemas import ChatPayload
 
 router = APIRouter()
 
-async def dual_channel_stream(user_message: str, thread_id: str):
-    config = {"configurable": {"thread_id": thread_id}}
+async def dual_channel_stream(user_message: str, session_id: str, api_key: str = None):
+    config = {"configurable": {"thread_id": session_id, "api_key": api_key}}
     inputs = {"messages": [("user", user_message)]}
 
     try:
@@ -46,6 +46,33 @@ async def dual_channel_stream(user_message: str, thread_id: str):
 @router.post("/chat")
 async def chat_endpoint(payload: ChatPayload):
     return StreamingResponse(
-        dual_channel_stream(payload.message, payload.thread_id), 
+        dual_channel_stream(payload.message, payload.session_id, payload.api_key), 
         media_type="text/event-stream"
     )
+
+@router.get("/history/{session_id}")
+def get_history(session_id: str):
+    config = {"configurable": {"thread_id": session_id}}
+    try:
+        state = compiled_graph.get_state(config)
+        if not state or not state.values:
+            return {"messages": [], "current_phase": "COACH"}
+        
+        messages = []
+        for msg in state.values.get("messages", []):
+            messages.append({
+                "role": getattr(msg, "type", "unknown"),
+                "content": getattr(msg, "content", ""),
+                "name": getattr(msg, "name", None)
+            })
+            
+        return {
+            "session_id": session_id,
+            "current_phase": state.values.get("current_phase", "COACH"),
+            "why": state.values.get("why"),
+            "what": state.values.get("what"),
+            "how": state.values.get("how"),
+            "messages": messages
+        }
+    except Exception as e:
+        return {"error": str(e)}

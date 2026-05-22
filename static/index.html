@@ -59,6 +59,9 @@
         <h3>Agent Config</h3>
         <label>API Key (测试阶段随意填)</label>
         <input type="password" id="apiKey" value="sk-test">
+    <div style="margin-top: 15px;">
+            <button onclick="newSession()" style="width: 100%; padding: 8px; background: #ea580c; color: white; border: none; border-radius: 4px; cursor: pointer;">+ 开启新对话</button>
+        </div>
     </div>
 
     <div class="chat-panel">
@@ -93,7 +96,79 @@
     </div>
 
     <script>
-        const threadId = "thread_" + Math.random().toString(36).substr(2, 9);
+        // 1. Session ID 与 API Key 的 LocalStorage 管理
+        let sessionId = localStorage.getItem("session_id");
+        if (!sessionId) {
+            sessionId = "session_" + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem("session_id", sessionId);
+        }
+
+        const apiKeyInput = document.getElementById('apiKey');
+        const savedApiKey = localStorage.getItem("api_key");
+        if (savedApiKey) {
+            apiKeyInput.value = savedApiKey;
+        }
+        
+        apiKeyInput.addEventListener("change", (e) => {
+            localStorage.setItem("api_key", e.target.value);
+        });
+
+        function newSession() {
+            localStorage.removeItem("session_id");
+            window.location.reload();
+        }
+
+        // 2. 页面加载时拉取历史记录
+        window.onload = async () => {
+            try {
+                const res = await fetch(`/api/v1/history/${sessionId}`);
+                const data = await res.json();
+                
+                if (data && data.messages && data.messages.length > 0) {
+                    const historyDiv = document.getElementById('chatHistory');
+                    historyDiv.innerHTML = ''; // 清空默认的打招呼信息
+                    
+                    data.messages.forEach(msg => {
+                        // LangChain 返回的角色通常是 'human' 或 'ai'
+                        const role = (msg.role === 'human' || msg.role === 'user') ? 'user' : 'doraoumen';
+                        const div = appendMessage('', role);
+                        if (role === 'doraoumen') {
+                            div.innerHTML = formatChatText(msg.content);
+                        } else {
+                            div.innerText = msg.content;
+                        }
+                    });
+                    
+                    // 恢复画布状态
+                    updateCanvasState(data);
+                }
+            } catch (e) {
+                console.error("无法加载历史记录", e);
+            }
+        };
+
+        function updateCanvasState(data) {
+            if(data.current_phase) {
+                const phaseMap = {
+                    "COACH": "COACH (发掘痛点)",
+                    "PM": "PM (产品落地方案)",
+                    "EXPERT": "EXPERT (技术与成本评估)",
+                    "FINISHED": "DONE (结题)"
+                };
+                document.getElementById('phaseContent').innerText = phaseMap[data.current_phase] || data.current_phase;
+            }
+            if(data.why) document.getElementById('whyContent').innerText = data.why;
+            if(data.what) document.getElementById('whatContent').innerText = data.what;
+            if(data.how) {
+                document.getElementById('howContent').innerHTML = `
+                    <b>预算:</b> ${data.how.cost} 万元<br>
+                    <b>M1:</b> ${data.how.milestones.M1}<br>
+                    <b>M2:</b> ${data.how.milestones.M2}<br>
+                    <b>M3:</b> ${data.how.milestones.M3}<br>
+                    <b>M4:</b> ${data.how.milestones.M4}
+                `;
+            }
+        }
 
         function handleKeyPress(e) {
             if (e.key === 'Enter') sendMessage();
@@ -109,13 +184,17 @@
 
             const aiBubble = appendMessage('', 'doraoumen');
             let fullAiResponse = "";
+            const currentApiKey = document.getElementById('apiKey').value;
 
             try {
-                // 【⚠️这里最重要：把下面的 IP 换成你跑 Docker 的服务器 IP】
                 const response = await fetch('/api/v1/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: msg, thread_id: threadId })
+                    body: JSON.stringify({ 
+                        message: msg, 
+                        session_id: sessionId,
+                        api_key: currentApiKey || undefined
+                    })
                 });
 
                 const reader = response.body.getReader();
@@ -138,39 +217,18 @@
                             const eventType = eventMatch[1];
                             const data = JSON.parse(dataMatch[1]);
 
-                            // 类别 1: 文本流打字
                             if (eventType === 'message') {
                                 fullAiResponse += data.chunk;
                                 aiBubble.innerHTML = formatChatText(fullAiResponse);
                             } 
-                            // 类别 2: 截取并更新右侧画布
                             else if (eventType === 'state_update') {
-                                if(data.current_phase) {
-                                    const phaseMap = {
-                                        "COACH": "COACH (发掘痛点)",
-                                        "PM": "PM (产品落地方案)",
-                                        "EXPERT": "EXPERT (技术与成本评估)",
-                                        "FINISHED": "DONE (结题)"
-                                    };
-                                    document.getElementById('phaseContent').innerText = phaseMap[data.current_phase] || data.current_phase;
-                                }
-                                if(data.why) document.getElementById('whyContent').innerText = data.why;
-                                if(data.what) document.getElementById('whatContent').innerText = data.what;
-                                if(data.how) {
-                                    document.getElementById('howContent').innerHTML = `
-                                        <b>预算:</b> ${data.how.cost} 万元<br>
-                                        <b>M1:</b> ${data.how.milestones.M1}<br>
-                                        <b>M2:</b> ${data.how.milestones.M2}<br>
-                                        <b>M3:</b> ${data.how.milestones.M3}<br>
-                                        <b>M4:</b> ${data.how.milestones.M4}
-                                    `;
-                                }
+                                updateCanvasState(data);
                             }
                         }
                     }
                 }
             } catch (err) {
-                aiBubble.innerText = "请求失败！请检查右侧代码里的 IP 地址是否填对了，或者服务器 8000 端口防火墙是否开放。";
+                aiBubble.innerText = "请求失败！请检查网络或后端服务是否正常启动。";
             }
         }
 
@@ -184,19 +242,15 @@
             return div;
         }
 
-        // --- 文本解析器：支持换行、粗体和选项卡片渲染 ---
         function formatChatText(text) {
-            // 1. 转义基本的HTML以防格式错乱，同时将换行符转为 <br>
             let html = text
                 .replace(/&/g, "&amp;")
                 .replace(/</g, "&lt;")
                 .replace(/>/g, "&gt;")
                 .replace(/\n/g, "<br>");
             
-            // 2. 简易粗体替换 **text**
             html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
 
-            // 3. 替换 [选项X] 为可点击的卡片 (兼容末尾带 <br> 或直接结束的情况)
             html = html.replace(/\[选项([A-Z])\](.*?)(\<br\>|$)/g, function(match, letter, content, endBr) {
                 const cleanContent = content.trim();
                 const safeContentForClick = cleanContent.replace(/'/g, "\\'").replace(/"/g, '&quot;');

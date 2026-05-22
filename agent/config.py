@@ -7,12 +7,12 @@ import httpx
 # 1. 显式加载环境变量
 load_dotenv()
 
-def initialize_llm() -> ChatOpenAI:
+def initialize_llm(custom_api_key: str = None) -> ChatOpenAI:
     """
     通过 default_headers 双保险焊死必填网关请求头的终极连接器
     """
     base_url = os.getenv("LLM_BASE_URL")      
-    api_key = os.getenv("LLM_API_KEY")        
+    api_key = custom_api_key or os.getenv("LLM_API_KEY")        
     model_name = os.getenv("LLM_MODEL_NAME")    
 
     if not all([base_url, api_key, model_name]):
@@ -61,13 +61,4 @@ def initialize_llm() -> ChatOpenAI:
         default_headers=custom_headers  # 👈 框架级护甲，杜绝 bind_tools 丢失 Headers
     )
 
-# 全局唯一单例
-try:
-    llm = initialize_llm()
-    if llm is None:
-        raise ValueError("initialize_llm 返回了 None")
-    print("✅ [Core] 独立 Agent 核心模型连接器：框架级多头护甲已完全焊死！")
-except Exception as e:
-    print(f"❌ [Core] 大模型初始化致命失败！")
-    traceback.print_exc()
-    llm = None
+# 移除全局单例，改为在每个请求的 Node 阶段动态创建模型实例

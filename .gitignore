@@ -25,3 +25,9 @@ docker-compose.override.yml
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Databases
+*.sqlite
+*.sqlite3
+*.db
+*.sqlite-journal
