@@ -1,6 +1,4 @@
-import sqlite3
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.sqlite import SqliteSaver
 from agent.state import AgentState
 from agent.nodes.phases import coach_node, pm_node, expert_node, report_node
 
@@ -58,13 +56,4 @@ path_map = {
     "report_node": "report_node",
     END: END
 }
-workflow.add_conditional_edges("coach_node", route_after_node, path_map)
-workflow.add_conditional_edges("pm_node", route_after_node, path_map)
-workflow.add_conditional_edges("expert_node", route_after_node, path_map)
-workflow.add_edge("report_node", END) # After report, just END.
-
-conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False)
-memory = SqliteSaver(conn)
-memory.setup()
-
-compiled_graph = workflow.compile(checkpointer=memory)
+workflow.add_conditional_edges("coach_node", route_after_node, path_map)

@@ -2,8 +2,10 @@ import json
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessageChunk
-from agent.workflow import compiled_graph
-from schemas import ChatPayload
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from agent.workflow import workflow
+from schemas import ChatPayload, CheckKeyPayload
+from agent.config import initialize_llm
 
 router = APIRouter()
 
@@ -12,7 +14,11 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
     inputs = {"messages": [("user", user_message)]}
 
     try:
-        async for event in compiled_graph.astream_events(inputs, config=config, version="v2"):
+        async with AsyncSqliteSaver.from_conn_string("checkpoints.sqlite") as checkpointer:
+            await checkpointer.setup()
+            compiled_graph = workflow.compile(checkpointer=checkpointer)
+            
+            async for event in compiled_graph.astream_events(inputs, config=config, version="v2"):
             kind = event["event"]
             node_name = event.get("name", "")
 
@@ -51,12 +57,16 @@ async def chat_endpoint(payload: ChatPayload):
     )
 
 @router.get("/history/{session_id}")
-def get_history(session_id: str):
+async def get_history(session_id: str):
     config = {"configurable": {"thread_id": session_id}}
     try:
-        state = compiled_graph.get_state(config)
-        if not state or not state.values:
-            return {"messages": [], "current_phase": "COACH"}
+        async with AsyncSqliteSaver.from_conn_string("checkpoints.sqlite") as checkpointer:
+            await checkpointer.setup()
+            compiled_graph = workflow.compile(checkpointer=checkpointer)
+            state = await compiled_graph.aget_state(config)
+            
+            if not state or not state.values:
+                return {"messages": [], "current_phase": "COACH"}
         
         messages = []
         for msg in state.values.get("messages", []):
@@ -76,3 +86,13 @@ def get_history(session_id: str):
         }
     except Exception as e:
         return {"error": str(e)}
+
+@router.post("/check-key")
+async def check_api_key(payload: CheckKeyPayload):
+    try:
+        llm = initialize_llm(payload.api_key)
+        # 用一句话测试大模型连通性
+        await llm.ainvoke("ping")
+        return {"status": "success", "message": "API Key 验证通过！连接正常。"}
+    except Exception as e:
+        return {"status": "error", "message": f"连接失败: {str(e)}"}

@@ -57,10 +57,20 @@
 
     <div class="config-panel">
         <h3>Agent Config</h3>
-        <label>API Key (测试阶段随意填)</label>
-        <input type="password" id="apiKey" value="sk-test">
-    <div style="margin-top: 15px;">
+        <label>API Key</label>
+        <div style="display: flex; gap: 5px; margin-bottom: 15px;">
+            <input type="password" id="apiKey" placeholder="输入 Key" style="margin-bottom: 0;">
+            <button onclick="checkKey()" style="padding: 8px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">测试</button>
+        </div>
+        <div id="keyStatus" style="font-size: 12px; margin-top: -10px; margin-bottom: 15px;"></div>
+        
+        <div style="margin-top: 15px;">
             <button onclick="newSession()" style="width: 100%; padding: 8px; background: #ea580c; color: white; border: none; border-radius: 4px; cursor: pointer;">+ 开启新对话</button>
+        </div>
+
+        <h4 style="margin-top: 30px; border-bottom: 1px solid #3f3f46; padding-bottom: 10px;">历史对话记录</h4>
+        <div id="sessionList" style="font-size: 14px; max-height: 300px; overflow-y: auto;">
+            <!-- 动态渲染历史列表 -->
         </div>
     </div>
 
@@ -97,10 +107,14 @@
 
     <script>
         // 1. Session ID 与 API Key 的 LocalStorage 管理
+        let sessions = JSON.parse(localStorage.getItem("sessions") || "[]");
         let sessionId = localStorage.getItem("session_id");
+
         if (!sessionId) {
             sessionId = "session_" + Math.random().toString(36).substr(2, 9);
             localStorage.setItem("session_id", sessionId);
+            sessions.unshift({ id: sessionId, time: new Date().toLocaleString() });
+            localStorage.setItem("sessions", JSON.stringify(sessions));
         }
 
         const apiKeyInput = document.getElementById('apiKey');
@@ -111,15 +125,74 @@
         
         apiKeyInput.addEventListener("change", (e) => {
             localStorage.setItem("api_key", e.target.value);
+            document.getElementById('keyStatus').innerText = "";
         });
+
+        async function checkKey() {
+            const key = document.getElementById('apiKey').value;
+            const statusEl = document.getElementById('keyStatus');
+            if (!key) {
+                statusEl.style.color = '#ef4444';
+                statusEl.innerText = '请先输入 API Key';
+                return;
+            }
+            statusEl.style.color = '#eab308';
+            statusEl.innerText = '测试中...';
+            
+            try {
+                const res = await fetch('/api/v1/check-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: key })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    statusEl.style.color = '#22c55e';
+                    statusEl.innerText = data.message;
+                } else {
+                    statusEl.style.color = '#ef4444';
+                    statusEl.innerText = data.message;
+                }
+            } catch (e) {
+                statusEl.style.color = '#ef4444';
+                statusEl.innerText = '网络请求异常';
+            }
+        }
 
         function newSession() {
             localStorage.removeItem("session_id");
             window.location.reload();
         }
 
+        function switchSession(id) {
+            if (id === sessionId) return;
+            localStorage.setItem("session_id", id);
+            window.location.reload();
+        }
+
+        function renderSessionList() {
+            const listEl = document.getElementById('sessionList');
+            listEl.innerHTML = '';
+            sessions.forEach(s => {
+                const div = document.createElement('div');
+                div.style.padding = '8px';
+                div.style.marginBottom = '5px';
+                div.style.borderRadius = '4px';
+                div.style.cursor = 'pointer';
+                div.style.backgroundColor = s.id === sessionId ? '#3f3f46' : 'transparent';
+                div.innerText = s.time;
+                div.onclick = () => switchSession(s.id);
+                
+                div.onmouseover = () => { if(s.id !== sessionId) div.style.backgroundColor = '#27272a'; };
+                div.onmouseout = () => { if(s.id !== sessionId) div.style.backgroundColor = 'transparent'; };
+                
+                listEl.appendChild(div);
+            });
+        }
+
         // 2. 页面加载时拉取历史记录
         window.onload = async () => {
+            renderSessionList();
             try {
                 const res = await fetch(`/api/v1/history/${sessionId}`);
                 const data = await res.json();

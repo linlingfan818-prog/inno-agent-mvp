@@ -17,3 +17,6 @@ class ProposalData(BaseModel):
     m2: str = Field(description="里程碑2的核心任务")
     m3: str = Field(description="里程碑3的核心任务")
     m4: str = Field(description="里程碑4的核心任务")
+
+class CheckKeyPayload(BaseModel):
+    api_key: str

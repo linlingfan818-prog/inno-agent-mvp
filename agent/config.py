@@ -12,10 +12,13 @@ def initialize_llm(custom_api_key: str = None) -> ChatOpenAI:
     通过 default_headers 双保险焊死必填网关请求头的终极连接器
     """
     base_url = os.getenv("LLM_BASE_URL")      
-    api_key = custom_api_key or os.getenv("LLM_API_KEY")        
+    api_key = custom_api_key        
     model_name = os.getenv("LLM_MODEL_NAME")    
 
-    if not all([base_url, api_key, model_name]):
+    if not api_key:
+        raise ValueError("API Key 不能为空，请先在左侧配置！")
+
+    if not all([base_url, model_name]):
         raise ValueError("❌ 错误: .env 文件中缺少大模型网关基础配置")
 
     # 🌟 核心硬性条件：缺一不可的全家桶防线
