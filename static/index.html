@@ -159,15 +159,23 @@
             }
         }
 
-        function newSession() {
-            localStorage.removeItem("session_id");
-            window.location.reload();
+        async function newSession() {
+            sessionId = "session_" + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem("session_id", sessionId);
+            sessions.unshift({ id: sessionId, time: new Date().toLocaleString() });
+            localStorage.setItem("sessions", JSON.stringify(sessions));
+            
+            renderSessionList();
+            await loadHistory();
         }
 
-        function switchSession(id) {
+        async function switchSession(id) {
             if (id === sessionId) return;
+            sessionId = id;
             localStorage.setItem("session_id", id);
-            window.location.reload();
+            
+            renderSessionList();
+            await loadHistory();
         }
 
         function renderSessionList() {
@@ -190,19 +198,16 @@
             });
         }
 
-        // 2. 页面加载时拉取历史记录
-        window.onload = async () => {
-            renderSessionList();
+        async function loadHistory() {
             try {
                 const res = await fetch(`/api/v1/history/${sessionId}`);
                 const data = await res.json();
                 
+                const historyDiv = document.getElementById('chatHistory');
+                historyDiv.innerHTML = ''; // 清空历史
+                
                 if (data && data.messages && data.messages.length > 0) {
-                    const historyDiv = document.getElementById('chatHistory');
-                    historyDiv.innerHTML = ''; // 清空默认的打招呼信息
-                    
                     data.messages.forEach(msg => {
-                        // LangChain 返回的角色通常是 'human' 或 'ai'
                         const role = (msg.role === 'human' || msg.role === 'user') ? 'user' : 'doraoumen';
                         const div = appendMessage('', role);
                         if (role === 'doraoumen') {
@@ -211,13 +216,21 @@
                             div.innerText = msg.content;
                         }
                     });
-                    
-                    // 恢复画布状态
                     updateCanvasState(data);
+                } else {
+                    // 默认欢迎语
+                    historyDiv.innerHTML = `<div class="message msg-doraoumen">你好！我是你的创新伙伴 Doraoumen 🤖。今天有什么绝妙的创新想法想要一起探讨一下吗？请随时告诉我你的业务痛点或面临的矛盾，我们一起破局。</div>`;
+                    updateCanvasState({current_phase: "COACH", why: "等待挖掘...", what: "等待挖掘...", how: null});
                 }
             } catch (e) {
                 console.error("无法加载历史记录", e);
             }
+        }
+
+        // 页面加载时拉取历史记录
+        window.onload = async () => {
+            renderSessionList();
+            await loadHistory();
         };
 
         function updateCanvasState(data) {
@@ -230,8 +243,8 @@
                 };
                 document.getElementById('phaseContent').innerText = phaseMap[data.current_phase] || data.current_phase;
             }
-            if(data.why) document.getElementById('whyContent').innerText = data.why;
-            if(data.what) document.getElementById('whatContent').innerText = data.what;
+            if(data.why) document.getElementById('whyContent').innerText = data.why || "等待挖掘...";
+            if(data.what) document.getElementById('whatContent').innerText = data.what || "等待挖掘...";
             if(data.how) {
                 document.getElementById('howContent').innerHTML = `
                     <b>预算:</b> ${data.how.cost} 万元<br>
@@ -240,6 +253,8 @@
                     <b>M3:</b> ${data.how.milestones.M3}<br>
                     <b>M4:</b> ${data.how.milestones.M4}
                 `;
+            } else {
+                document.getElementById('howContent').innerHTML = "等待立项...";
             }
         }
 
@@ -258,6 +273,9 @@
             const aiBubble = appendMessage('', 'doraoumen');
             let fullAiResponse = "";
             const currentApiKey = document.getElementById('apiKey').value;
+            
+            // 锁定当前发送请求时的 sessionId
+            const requestSessionId = sessionId;
 
             try {
                 const response = await fetch('/api/v1/chat', {
@@ -265,7 +283,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         message: msg, 
-                        session_id: sessionId,
+                        session_id: requestSessionId,
                         api_key: currentApiKey || undefined
                     })
                 });
@@ -292,16 +310,25 @@
 
                             if (eventType === 'message') {
                                 fullAiResponse += data.chunk;
-                                aiBubble.innerHTML = formatChatText(fullAiResponse);
+                                // 只有当用户没有切走会话时，才更新界面
+                                if (requestSessionId === sessionId) {
+                                    aiBubble.innerHTML = formatChatText(fullAiResponse);
+                                    const historyDiv = document.getElementById('chatHistory');
+                                    historyDiv.scrollTop = historyDiv.scrollHeight;
+                                }
                             } 
                             else if (eventType === 'state_update') {
-                                updateCanvasState(data);
+                                if (requestSessionId === sessionId) {
+                                    updateCanvasState(data);
+                                }
                             }
                         }
                     }
                 }
             } catch (err) {
-                aiBubble.innerText = "请求失败！请检查网络或后端服务是否正常启动。";
+                if (requestSessionId === sessionId) {
+                    aiBubble.innerText = "请求失败！请检查网络或后端服务是否正常启动。";
+                }
             }
         }
 
