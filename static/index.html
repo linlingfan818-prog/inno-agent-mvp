@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>INNO-Chat 创新孵化器</title>
+    <style>
+        body { font-family: system-ui; display: flex; height: 100vh; margin: 0; background: #f4f4f5; }
+        /* 1. Agent 参数设置区 */
+        .config-panel { width: 250px; background: #18181b; color: white; padding: 20px; }
+        .config-panel input { width: 100%; margin-bottom: 15px; padding: 8px; box-sizing: border-box; }
+        
+        /* 2. 聊天主窗口 */
+        .chat-panel { flex: 1; display: flex; flex-direction: column; background: white; border-right: 1px solid #e4e4e7; }
+        .chat-history { flex: 1; padding: 20px; overflow-y: auto; }
+        .message { margin-bottom: 15px; padding: 10px 15px; border-radius: 8px; max-width: 80%; line-height: 1.5; }
+        .msg-doraoumen { background: #fef08a; align-self: flex-start; }
+        .msg-user { background: #3b82f6; color: white; margin-left: auto; }
+        .input-area { padding: 20px; border-top: 1px solid #e4e4e7; display: flex; gap: 10px; }
+        .input-area input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .input-area button { padding: 10px 20px; background: #18181b; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        
+        /* 3. 侧边栏：总结信息显示窗口 */
+        .summary-panel { width: 350px; background: #fafafa; padding: 20px; }
+        .summary-card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e4e4e7; box-shadow: 0 1px 2px rgba(0,0,0,0.05);}
+        .summary-card h3 { margin-top: 0; font-size: 14px; color: #52525b; }
+        .summary-content { font-size: 14px; color: #18181b; min-height: 40px;}
+    </style>
+</head>
+<body>
+
+    <div class="config-panel">
+        <h3>Agent Config</h3>
+        <label>API Key (测试阶段随意填)</label>
+        <input type="password" id="apiKey" value="sk-test">
+    </div>
+
+    <div class="chat-panel">
+        <div class="chat-history" id="chatHistory">
+            <div class="message msg-doraoumen">
+                你好！我是你的创新伙伴 Doraoumen 🤖。今天有什么绝妙的创新想法想要一起探讨一下吗？请随时告诉我你的业务痛点或面临的矛盾，我们一起破局。
+            </div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="例如：我想把屏幕换成水墨屏..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">发送</button>
+        </div>
+    </div>
+
+    <div class="summary-panel">
+        <h2>创新画布 (Canvas)</h2>
+        <div class="summary-card">
+            <h3>核心痛点 (Why)</h3>
+            <div class="summary-content" id="whyContent">等待挖掘...</div>
+        </div>
+        <div class="summary-card">
+            <h3>创新产品 (What)</h3>
+            <div class="summary-content" id="whatContent">等待挖掘...</div>
+        </div>
+        <div class="summary-card">
+            <h3>技术方案 (How)</h3>
+            <div class="summary-content" id="howContent">等待立项...</div>
+        </div>
+    </div>
+
+    <script>
+        const threadId = "thread_" + Math.random().toString(36).substr(2, 9);
+
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') sendMessage();
+        }
+
+        async function sendMessage() {
+            const inputEl = document.getElementById('userInput');
+            const msg = inputEl.value;
+            if(!msg) return;
+
+            appendMessage(msg, 'user');
+            inputEl.value = '';
+
+            const aiBubble = appendMessage('', 'doraoumen');
+
+            try {
+                // 【⚠️这里最重要：把下面的 IP 换成你跑 Docker 的服务器 IP】
+                const response = await fetch('/api/v1/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg, thread_id: threadId })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n\n');
+                    buffer = lines.pop(); 
+
+                    for (const block of lines) {
+                        const eventMatch = block.match(/event: (.*)\n/);
+                        const dataMatch = block.match(/data: (.*)/);
+                        
+                        if (eventMatch && dataMatch) {
+                            const eventType = eventMatch[1];
+                            const data = JSON.parse(dataMatch[1]);
+
+                            // 类别 1: 文本流打字
+                            if (eventType === 'message') {
+                                aiBubble.innerHTML += data.chunk;
+                            } 
+                            // 类别 2: 截取并更新右侧画布
+                            else if (eventType === 'state_update') {
+                                if(data.why) document.getElementById('whyContent').innerText = data.why;
+                                if(data.what) document.getElementById('whatContent').innerText = data.what;
+                                if(data.how) {
+                                    document.getElementById('howContent').innerHTML = `
+                                        <b>预算:</b> ${data.how.cost} 万元<br>
+                                        <b>M1:</b> ${data.how.milestones.M1}<br>
+                                        <b>M2:</b> ${data.how.milestones.M2}
+                                    `;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                aiBubble.innerText = "请求失败！请检查右侧代码里的 IP 地址是否填对了，或者服务器 8000 端口防火墙是否开放。";
+            }
+        }
+
+        function appendMessage(text, role) {
+            const history = document.getElementById('chatHistory');
+            const div = document.createElement('div');
+            div.className = `message msg-${role}`;
+            div.innerText = text;
+            history.appendChild(div);
+            history.scrollTop = history.scrollHeight;
+            return div;
+        }
+    </script>
+</body>
+</html>
