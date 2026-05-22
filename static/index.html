@@ -48,6 +48,9 @@
 
     <div class="summary-panel">
         <h2>创新画布 (Canvas)</h2>
+        <div style="margin-bottom: 15px; font-weight: bold; color: #3b82f6;">
+            当前阶段: <span id="phaseContent">COACH (发掘痛点)</span>
+        </div>
         <div class="summary-card">
             <h3>核心痛点 (Why)</h3>
             <div class="summary-content" id="whyContent">等待挖掘...</div>
@@ -113,13 +116,24 @@
                             } 
                             // 类别 2: 截取并更新右侧画布
                             else if (eventType === 'state_update') {
+                                if(data.current_phase) {
+                                    const phaseMap = {
+                                        "COACH": "COACH (发掘痛点)",
+                                        "PM": "PM (产品落地方案)",
+                                        "EXPERT": "EXPERT (技术与成本评估)",
+                                        "FINISHED": "DONE (结题)"
+                                    };
+                                    document.getElementById('phaseContent').innerText = phaseMap[data.current_phase] || data.current_phase;
+                                }
                                 if(data.why) document.getElementById('whyContent').innerText = data.why;
                                 if(data.what) document.getElementById('whatContent').innerText = data.what;
                                 if(data.how) {
                                     document.getElementById('howContent').innerHTML = `
                                         <b>预算:</b> ${data.how.cost} 万元<br>
                                         <b>M1:</b> ${data.how.milestones.M1}<br>
-                                        <b>M2:</b> ${data.how.milestones.M2}
+                                        <b>M2:</b> ${data.how.milestones.M2}<br>
+                                        <b>M3:</b> ${data.how.milestones.M3}<br>
+                                        <b>M4:</b> ${data.how.milestones.M4}
                                     `;
                                 }
                             }

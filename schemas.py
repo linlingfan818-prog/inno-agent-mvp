@@ -10,5 +10,7 @@ class CanvasData(BaseModel):
 
 class ProposalData(BaseModel):
     cost: str = Field(description="预估开发成本(万元)")
-    m1: str = Field(description="里程碑1的核心研发任务")
-    m2: str = Field(description="里程碑2的核心验证任务")
+    m1: str = Field(description="里程碑1的核心任务")
+    m2: str = Field(description="里程碑2的核心任务")
+    m3: str = Field(description="里程碑3的核心任务")
+    m4: str = Field(description="里程碑4的核心任务")

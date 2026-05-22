@@ -22,10 +22,11 @@ async def dual_channel_stream(user_message: str, thread_id: str):
                 data = json.dumps({"chunk": chunk.content}, ensure_ascii=False)
                 yield f"event: message\ndata: {data}\n\n"
 
-        # 通道B：推送最新的影子画布状态
-        elif kind == "on_node_end" and node_name in ["extract_skill", "proposal_skill"]:
+        # 通道B：推送最新的状态 (包含当前阶段和最后生成的数据)
+        elif kind == "on_node_end" and node_name in ["coach_node", "pm_node", "expert_node", "report_node"]:
             state = compiled_graph.get_state(config).values
             state_data = {
+                "current_phase": state.get("current_phase", "COACH"),
                 "why": state.get("why"),
                 "what": state.get("what"),
                 "how": state.get("how")

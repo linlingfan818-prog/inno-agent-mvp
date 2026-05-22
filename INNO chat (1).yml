@@ -1,0 +1,1467 @@
+app:
+  description: ''
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: advanced-chat
+  name: INNO chat
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: package
+  value:
+    plugin_unique_identifier: langgenius/openai_api_compatible:0.0.49@a9ba7656484e461b1f08a6fc76c9ed9db656ebf90e8b3651f488fd411a82152d
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables:
+  - description: ''
+    id: 4ec16806-c9d4-45f4-bbe3-1339bfc18f53
+    name: language_choice
+    selector:
+    - conversation
+    - language_choice
+    value: zh
+    value_type: string
+  - description: ''
+    id: 9ff4fbcb-e69c-4a17-81a2-6ed9d56274aa
+    name: coach_question
+    selector:
+    - conversation
+    - coach_question
+    value: ''
+    value_type: string
+  - description: ''
+    id: 3a12b2c7-dc33-422e-9a27-6c084bc3b7e0
+    name: inno_ideal
+    selector:
+    - conversation
+    - inno_ideal
+    value: ''
+    value_type: string
+  - description: ''
+    id: e3dcfd3e-a5db-4c24-9dce-a96352819bee
+    name: chat_history_how
+    selector:
+    - conversation
+    - chat_history_how
+    value: []
+    value_type: array[string]
+  - description: ''
+    id: c20eb6cb-d439-4780-9c40-55a1eea1b6bf
+    name: chat_history_what
+    selector:
+    - conversation
+    - chat_history_what
+    value: []
+    value_type: array[string]
+  - description: 'BA '
+    id: 97668f0a-108d-46b4-94f7-c498d896ce2d
+    name: BA
+    selector:
+    - conversation
+    - BA
+    value: ''
+    value_type: string
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 20
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInLoop: false
+        sourceType: assigner
+        targetType: llm
+      id: 1766395557705-source-1766395522044-target
+      selected: false
+      source: '1766395557705'
+      sourceHandle: source
+      target: '1766395522044'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1766395522044-source-1766396106278-target
+      selected: false
+      source: '1766395522044'
+      sourceHandle: source
+      target: '1766396106278'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: template-transform
+      id: 1766396106278-source-1766396362760-target
+      selected: false
+      source: '1766396106278'
+      sourceHandle: source
+      target: '1766396362760'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: assigner
+      id: 1766478713994-false-1766395557705-target
+      selected: false
+      source: '1766478713994'
+      sourceHandle: 'false'
+      target: '1766395557705'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1766478713994-true-1766478805608-target
+      selected: false
+      source: '1766478713994'
+      sourceHandle: 'true'
+      target: '1766478805608'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1766478713994-e739f929-7ed6-4c7c-a9f6-8b87d73777e2-1766480762861-target
+      selected: false
+      source: '1766478713994'
+      sourceHandle: e739f929-7ed6-4c7c-a9f6-8b87d73777e2
+      target: '1766480762861'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1766395522044-source-1767596038261-target
+      selected: false
+      source: '1766395522044'
+      sourceHandle: source
+      target: '1767596038261'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: assigner
+      id: 1767596038261-source-1767595795848-target
+      selected: false
+      source: '1767596038261'
+      sourceHandle: source
+      target: '1767595795848'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: start
+        targetType: if-else
+      id: 1766046983049-source-1766478713994-target
+      selected: false
+      source: '1766046983049'
+      sourceHandle: source
+      target: '1766478713994'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: template-transform
+        targetType: if-else
+      id: 1766396362760-source-1767946754357-target
+      selected: false
+      source: '1766396362760'
+      sourceHandle: source
+      target: '1767946754357'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1767946754357-true-1767946667593-target
+      selected: false
+      source: '1767946754357'
+      sourceHandle: 'true'
+      target: '1767946667593'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: variable-aggregator
+      id: 1767946667593-source-1767946838281-target
+      selected: false
+      source: '1767946667593'
+      sourceHandle: source
+      target: '1767946838281'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: variable-aggregator
+      id: 1767946754357-false-1767946838281-target
+      selected: false
+      source: '1767946754357'
+      sourceHandle: 'false'
+      target: '1767946838281'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: assigner
+        targetType: llm
+      id: 1767595795848-source-1767946995621-target
+      selected: false
+      source: '1767595795848'
+      sourceHandle: source
+      target: '1767946995621'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: if-else
+      id: 1767946995621-source-1767947285672-target
+      selected: false
+      source: '1767946995621'
+      sourceHandle: source
+      target: '1767947285672'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1767947285672-true-1767947316616-target
+      selected: false
+      source: '1767947285672'
+      sourceHandle: 'true'
+      target: '1767947316616'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: variable-aggregator
+      id: 1767947285672-false-1767947376949-target
+      selected: false
+      source: '1767947285672'
+      sourceHandle: 'false'
+      target: '1767947376949'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: variable-aggregator
+      id: 1767947316616-source-1767947376949-target
+      selected: false
+      source: '1767947316616'
+      sourceHandle: source
+      target: '1767947376949'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: variable-aggregator
+        targetType: answer
+      id: 1767947376949-source-1767595630129-target
+      selected: false
+      source: '1767947376949'
+      sourceHandle: source
+      target: '1767595630129'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: variable-aggregator
+        targetType: answer
+      id: 1767946838281-source-1767595630129-target
+      selected: false
+      source: '1767946838281'
+      sourceHandle: source
+      target: '1767595630129'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: answer
+        targetType: answer
+      id: 1767595630129-source-1767947901058-target
+      selected: false
+      source: '1767595630129'
+      sourceHandle: source
+      target: '1767947901058'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1768199541475-true-1767948065002-target
+      selected: false
+      source: '1768199541475'
+      sourceHandle: 'true'
+      target: '1767948065002'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: template-transform
+      id: 1767948065002-source-1766482694807-target
+      selected: false
+      source: '1767948065002'
+      sourceHandle: source
+      target: '1766482694807'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: template-transform
+      id: 1768199541475-false-17681996152340-target
+      selected: false
+      source: '1768199541475'
+      sourceHandle: 'false'
+      target: '17681996152340'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: assigner
+      id: 1766478805608-source-1768199718254-target
+      selected: false
+      source: '1766478805608'
+      sourceHandle: source
+      target: '1768199718254'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: assigner
+        targetType: if-else
+      id: 1768199718254-source-1768199541475-target
+      selected: false
+      source: '1768199718254'
+      sourceHandle: source
+      target: '1768199541475'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: if-else
+      id: 1766480762861-source-1768199903530-target
+      source: '1766480762861'
+      sourceHandle: source
+      target: '1768199903530'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1768199903530-true-1767948313098-target
+      source: '1768199903530'
+      sourceHandle: 'true'
+      target: '1767948313098'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: answer
+      id: 1767948313098-source-1766482226953-target
+      source: '1767948313098'
+      sourceHandle: source
+      target: '1766482226953'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: if-else
+        targetType: answer
+      id: 1768199903530-false-1768200583963-target
+      source: '1768199903530'
+      sourceHandle: 'false'
+      target: '1768200583963'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: template-transform
+        targetType: answer
+      id: 1766482694807-source-1766479452284-target
+      source: '1766482694807'
+      sourceHandle: source
+      target: '1766479452284'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: template-transform
+        targetType: answer
+      id: 17681996152340-source-1768200910702-target
+      source: '17681996152340'
+      sourceHandle: source
+      target: '1768200910702'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: ''
+        selected: false
+        title: Start
+        type: start
+        variables:
+        - default: en
+          label: language_choice
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: language_choice
+      height: 89
+      id: '1766046983049'
+      position:
+        x: -281.35797143346684
+        y: 145.31258098650542
+      positionAbsolute:
+        x: -281.35797143346684
+        y: 145.31258098650542
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: claude-4-6-opus-v1:0
+          provider: langgenius/openai_api_compatible/openai_api_compatible
+        prompt_config:
+          jinja2_variables: []
+        prompt_template:
+        - edition_type: basic
+          id: 803922ea-fe38-425c-96c1-041f62407038
+          role: system
+          text: "# 核心任务\n你是一个”帮助用户明确创新预研方向“的智能助手，用户首次提问会提供创新信息：\n{”why“ ：”明确当前痛点，阐明为什么要做这个创新？“\n\
+            \  ”what“：明确创新内容\n}\n\n你的任务是参考用户提供的创新信息以及对话历史提问，结合上下文{{#conversation.chat_history_what#}}，将用户的的\"\
+            why 创新点“ 和 ”what 具体创新产品“ 明确细化，成为一个合理创新想法\n\n # 工作流程与规则\n\n输入分析：\n用户历史：用户在此之前所有说过的话{{#conversation.chat_history_what#}}。\n\
+            用户当前回答：用户最新一句创新信息。\n\n细化规则：\n根据TRIZ系统创新方法论， 分析历史问题和回答，给出用户感兴趣的\"推荐问题\"\
+            和3-4个”建议回答“帮助用户明确主要矛盾点和创新点\n\n推荐问题以创新教练的语气方式提问\n\n请按以下格式输出json：\n{ \n\
+            \ ”question“: \"推荐问题\",\n  \"answers\": [\"回答1\", \"回答2\", ...],\n}\n\n\
+            不输出其他额外信息，文字\n\n\n待处理信息：\n历史提问: {{#conversation.chat_history_what#}}\n\
+            TRIZ系: 即发明问题解决理论（Theory of Inventive Problem Solving），是一种系统化的创新方法论"
+        - edition_type: basic
+          id: 155b28a6-be45-4a6e-a6ac-b39c465cb5da
+          role: user
+          text: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: false
+          retry_interval: 1000
+        selected: false
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties: {}
+            required: []
+            type: object
+        structured_output_enabled: false
+        title: 分析提问记录，给出推荐问题
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 89
+      id: '1766395522044'
+      position:
+        x: 749.3406227712633
+        y: 691.1833242747423
+      positionAbsolute:
+        x: 749.3406227712633
+        y: 691.1833242747423
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        desc: ''
+        items:
+        - input_type: variable
+          operation: append
+          value:
+          - sys
+          - query
+          variable_selector:
+          - conversation
+          - chat_history_what
+          write_mode: over-write
+        selected: false
+        title: Variable Assigner 2
+        type: assigner
+        version: '2'
+      height: 85
+      id: '1766395557705'
+      position:
+        x: 511.57858221724587
+        y: 492.3787868672216
+      positionAbsolute:
+        x: 511.57858221724587
+        y: 492.3787868672216
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        code: "\ndef main(arg1: str) -> dict:\n    try:\n        data = json.loads(arg1[8:-3])\n\
+          \        answers = data.get(\"answers\", [])\n        answers.append(\"\
+          #创新方向已明确，点击完成\")\n        return {\n            \"result\": answers,\n \
+          \       }\n    except json.JSONDecodeError:\n        return {\"result\"\
+          : arg1}\n"
+        code_language: python3
+        desc: ''
+        outputs:
+          result:
+            children: null
+            type: array[string]
+        selected: false
+        title: 处理推荐问题
+        type: code
+        variables:
+        - value_selector:
+          - '1766395522044'
+          - text
+          value_type: string
+          variable: arg1
+      height: 53
+      id: '1766396106278'
+      position:
+        x: 967.3776915936759
+        y: 842.6234780475104
+      positionAbsolute:
+        x: 967.3776915936759
+        y: 842.6234780475104
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        desc: ''
+        selected: false
+        template: "{% for item in arg1 %}\r\n<button data-message=\"{{item}}\" data-variant=\"\
+          primary\">{{ item }}</button>\r\n{% endfor %}"
+        title: Template
+        type: template-transform
+        variables:
+        - value_selector:
+          - '1766396106278'
+          - result
+          value_type: array[string]
+          variable: arg1
+      height: 53
+      id: '1766396362760'
+      position:
+        x: 1116.9969018649022
+        y: 975.0727619975787
+      positionAbsolute:
+        x: 1116.9969018649022
+        y: 975.0727619975787
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: contains
+            id: 68cf6f1c-4eab-4489-bc63-b809b51e1e8d
+            value: '#创新方向已明确，点击完成'
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: 2a2ebd4f-be60-44e0-8091-177f5a1d9a03
+            value: '#Innovation direction is confirmed. Click to complete'
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          id: 'true'
+          logical_operator: or
+        - case_id: e739f929-7ed6-4c7c-a9f6-8b87d73777e2
+          conditions:
+          - comparison_operator: contains
+            id: 9ee506e3-f29c-4af5-8fa7-7a61d1b6da0e
+            value: '#生成技术方案'
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          - comparison_operator: contains
+            id: 4bd6b11d-80ee-4729-827a-53f63e186c98
+            value: '#Generate Technical Proposal'
+            varType: string
+            variable_selector:
+            - sys
+            - query
+          id: e739f929-7ed6-4c7c-a9f6-8b87d73777e2
+          logical_operator: or
+        desc: ''
+        selected: false
+        title: IF/ELSE
+        type: if-else
+      height: 225
+      id: '1766478713994'
+      position:
+        x: 8.52377460503891
+        y: 145.31258098650542
+      positionAbsolute:
+        x: 8.52377460503891
+        y: 145.31258098650542
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: claude-4-6-opus-v1:0
+          provider: langgenius/openai_api_compatible/openai_api_compatible
+        prompt_template:
+        - id: 1175fc62-7a3d-41dd-ba5f-53da234e3e88
+          role: system
+          text: "你是一个”创新课题“改写助手\n根据历史提问记录{{#conversation.chat_history_what#}}, 帮用户重新整理\
+            \ 创新课题的痛点why 和 创新内容 what\n输出格式json 格式：\n{ \nwhy:  ”创新痛点“\nwhat: ”创新内容“\
+            \ # 任务\n你现在的任务是汇总用户的创新课题。请从用户的最后一条输入中提取核心细节，并结合历史对话生成最终的 `inno_ideal`。\n\
+            \n# 输入分析\n用户输入内容：{{#sys.query#}}\n\n# 提取规则\n1. 识别并忽略触发指令：如“#创新方向已明确，点击完成”。\n\
+            2. 捕获增量信息：提取指令之外的所有描述（例如：低延迟 10-100ms，用于增量训练等）。\n3. 整合：将这些新细节补充进原有的 \"\
+            What\" (创新内容) 字段中。\n\n# 输出要求\n确保总结后的内容逻辑严密。例如：\n- Why: 现有的模型更新频率太慢，无法满足快速迭代需求。\n\
+            - What: 构建一套低延迟（10-100ms）的数据回传系统，专门用于准实时的模型增量训练，重点在于非在线闭环的效率提升。\n}\n\n\
+            不输出多余信息\n"
+        selected: false
+        title: what & how 改写
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 89
+      id: '1766478805608'
+      position:
+        x: 375.1892052689659
+        y: 14.48306257972311
+      positionAbsolute:
+        x: 375.1892052689659
+        y: 14.48306257972311
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        answer: '{{#1767948065002.text#}}
+
+
+          ---------------------------------------------------------
+
+          {{#1766482694807.output#}}'
+        desc: ''
+        selected: false
+        title: Answer 3
+        type: answer
+        variables: []
+      height: 138
+      id: '1766479452284'
+      position:
+        x: 2157.3269165160605
+        y: -115.20199908515211
+      positionAbsolute:
+        x: 2157.3269165160605
+        y: -115.20199908515211
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: claude-4-6-opus-v1:0
+          provider: langgenius/openai_api_compatible/openai_api_compatible
+        prompt_template:
+        - id: ece4c6d0-9401-4dee-b635-b53027adbecf
+          role: system
+          text: "你是一个”创新技术方案探索“的智能助手\n\n用户的创新想法{{#conversation.inno_ideal#}}包含：\n\
+            why ：创新痛点， 为什么要进行这个创新课题\nwhat： 创新课题的内容是什么\n\n你的主要任务根据用户的创新想法，寻找技术方案， \n\
+            具体规则如下：\n{ 1. 评估相关的现有方案， 分析优缺点，核心矛盾，不超过三个\n2. 生成创新方案，强调创新点，scope，OKRs,\
+            \  可行性分析，创新收益分析， 风险评估分析\n3. 将创新方案的拆分成具体的工作流， 安排工作计划， 工作资源, 并且预估下项目开发的成本，\
+            \ 以万元为单位。\n4. “milestone”:  将工作流安排总结成4 段式milestone 里程碑 形式, 具体格式为 {“M1”:\
+            \ \"xxx\", “M2”: \"xxx\", “M3”: \"xxx\", “M4”: \"xxx\"}， 每一段‘’xxx“ 包含内容和时间，50字以内\n\
+            5.‘技术方案概览’ ： 将创新技术方案总结为一段200字内的描述\n\n6. \"scope\": 将技术方案中in - scope 内容总结为1-2句话描述。意思不变\n\
+            7. “name”: 根据创新点和创新方案 总结出一个项目名称\n8. “OKRs”  的格式为json 格式：\n{  \n      \"\
+            Objective\" : [Objective1 , Objective2]\n      \"Key Results\": [KR1,\
+            \ KR2, ...........]\n}\n\n9. 开发成本 细分为3个方面：设备材料material， 人员花费labor, 第三方供应商花费3rd-party,\
+            \ 单个小项可以为 0\n\n10. 工作资源： 主要为人力资源， 格式样本为：“前端工程师 2 HC/month\", HC 为人头英文Head\
+            \ count 的缩写\n\n11. ‘完整技术方案’： 将创新方案整理成一个完整技术方案报告， 内容全部保留，尽量详细， 增加参考文献模块，并在正文中有调用链接，\
+            \ 适配markdown 格式。\n}\n\n约束条件：\n上述规则条件只作为规则，不单独额外输出\n最终输出格式下面json格式内容， 不要多余内容\n\
+            { \nname: 'name'\nhow:  ”技术方案概览“\nscope: \"scope\"\nOKRs:  “OKRs” \nMilestone:\
+            \ “milestone”\nResource: 工作资源\ncost: 开发成本\nreport: 完整技术方案\n}\n\n\n\n\n"
+        selected: false
+        title: 技术方案助手
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 89
+      id: '1766480762861'
+      position:
+        x: 521.4077656801987
+        y: 217.84060913346326
+      positionAbsolute:
+        x: 521.4077656801987
+        y: 217.84060913346326
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        answer: '{{#1767948313098.text#}}'
+        desc: ''
+        selected: false
+        title: Answer 3
+        type: answer
+        variables: []
+      height: 103
+      id: '1766482226953'
+      position:
+        x: 1584.8069864683735
+        y: 233.17224204454982
+      positionAbsolute:
+        x: 1584.8069864683735
+        y: 233.17224204454982
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        desc: ''
+        selected: false
+        template: <button data-message="#Generate Technical Proposal" data-variant="primary">
+          {{"#Generate Technical Proposal"}}</button>
+        title: 技术方案按钮
+        type: template-transform
+        variables: []
+      height: 53
+      id: '1766482694807'
+      position:
+        x: 1797.9685907589612
+        y: -76.5169374202768
+      positionAbsolute:
+        x: 1797.9685907589612
+        y: -76.5169374202768
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        answer: '{{#1767947376949.output#}}'
+        desc: ''
+        selected: false
+        title: Answer 4
+        type: answer
+        variables: []
+      height: 103
+      id: '1767595630129'
+      position:
+        x: 2871.8300586145174
+        y: 1151.0370290496032
+      positionAbsolute:
+        x: 2871.8300586145174
+        y: 1151.0370290496032
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        desc: ''
+        items:
+        - input_type: variable
+          operation: over-write
+          value:
+          - '1767596038261'
+          - result
+          variable_selector:
+          - conversation
+          - coach_question
+          write_mode: over-write
+        selected: false
+        title: Variable Assigner 3
+        type: assigner
+        version: '2'
+      height: 85
+      id: '1767595795848'
+      position:
+        x: 1365.2706714112262
+        y: 691.1833242747423
+      positionAbsolute:
+        x: 1365.2706714112262
+        y: 691.1833242747423
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        code: "\ndef main(arg1: str) -> dict:\n    try:\n        data = json.loads(arg1[8:-3])\n\
+          \        answers = data.get(\"question\")\n        return {\n          \
+          \  \"result\": answers,\n        }\n    except json.JSONDecodeError:\n \
+          \       return {\"result\": arg1}\n"
+        code_language: python3
+        desc: ''
+        outputs:
+          result:
+            children: null
+            type: string
+        selected: false
+        title: Code 2
+        type: code
+        variables:
+        - value_selector:
+          - '1766395522044'
+          - text
+          value_type: string
+          variable: arg1
+      height: 53
+      id: '1767596038261'
+      position:
+        x: 1057.270671411226
+        y: 691.1833242747423
+      positionAbsolute:
+        x: 1057.270671411226
+        y: 691.1833242747423
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: gemini-2.5-pro
+          provider: langgenius/openai_api_compatible/openai_api_compatible
+        prompt_template:
+        - id: 387b46d8-6e67-4852-a82e-5619a2bd75d2
+          role: system
+          text: "你的角色是：结构保持型翻译助手\n输入内容{{#1766396362760.output#}}\n\n你的任务是：\n- 将输入的\
+            \ string 格式 text 翻译成英语\n- text 中可能包含：\n  - JSON\n  - 按钮文案\n  - 换行符\n \
+            \ - 公式\n  - 特殊标识符\n  - 占位变量\n  - HTML / Markdown 结构\n\n---\n\n# 核心翻译规则（必须严格遵守）\n\
+            \n1. **只翻译“可读文本内容”**\n   - 不翻译：\n     - JSON key\n     - 变量占位符（如 {{xxx}}）\n\
+            \     - 公式符号\n     - 特殊标识符\n     - HTML / Markdown 标签\n     - 按钮结构\n\n\
+            2. **保持原始结构完全不变**\n   - JSON 层级不变\n   - 换行符不变\n   - 标点结构不变\n   - 标签位置不变\n\
+            \   - 不调整字段顺序\n\n3. **不要求逐字翻译**\n   - 允许意译\n   - 但必须保持：\n     - 原始语义\n\
+            \     - 原始语气\n     - 原始用途（提示 / 警告 / 按钮 / 说明）\n\n4. **风格保持**\n   - 正式 →\
+            \ 正式\n   - 口语 → 口语\n   - 产品文案 → 产品风格\n   - 技术说明 → 技术风格\n\n5. **禁止新增或删除任何内容**\n\
+            \   - 只能替换“可翻译文本”\n   - 不得合并字段\n   - 不得拆分句子\n\n---\n\n# 特殊处理规则\n\n- 如果遇到：\n\
+            \  - 代码块\n  - JSON\n  - 公式\n  - 特殊标识符（如 ###, @@, %%）\n  \n  → **只翻译其中的人类可读文本部分**\n\
+            \  → 其余全部原样保留\n\n- 如果某段内容已经是英文：\n  → 保持不变，不重复翻译\n\n---\n\n- 如果遇到以下中文内容（完全匹配）：\n\
+            \  **“#创新方向已明确，点击完成”**\n\n- 必须翻译为以下**固定英文表述**（不得改写、不得同义替换）：\n  **“#Innovation\
+            \ direction is confirmed. Click to complete”**\n\n\n# 输出约束（非常重要）\n\n-\
+            \ **只输出翻译后的 text**\n- **不输出任何解释说明**\n- **不输出多余字符**\n- **输出格式必须与输入结构完全一致**"
+        selected: false
+        title: LLM 4
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 89
+      id: '1767946667593'
+      position:
+        x: 1696.2253355912571
+        y: 842.6234780475104
+      positionAbsolute:
+        x: 1696.2253355912571
+        y: 842.6234780475104
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: is
+            id: d9777920-7b20-4d6f-b106-ce1ada3e767d
+            value: en
+            varType: string
+            variable_selector:
+            - '1766046983049'
+            - language_choice
+          id: 'true'
+          logical_operator: and
+        desc: ''
+        selected: false
+        title: IF/ELSE 2
+        type: if-else
+      height: 125
+      id: '1767946754357'
+      position:
+        x: 1503.624508371563
+        y: 1008.4474921808905
+      positionAbsolute:
+        x: 1503.624508371563
+        y: 1008.4474921808905
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        desc: ''
+        output_type: string
+        selected: false
+        title: Variable Aggregator
+        type: variable-aggregator
+        variables:
+        - - '1767946667593'
+          - text
+        - - '1766396362760'
+          - output
+      height: 136
+      id: '1767946838281'
+      position:
+        x: 2046.9338787800575
+        y: 949.0722488372276
+      positionAbsolute:
+        x: 2046.9338787800575
+        y: 949.0722488372276
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: claude-4-6-opus-v1:0
+          provider: langgenius/openai_api_compatible/openai_api_compatible
+        prompt_template:
+        - id: 6c84353a-b5aa-46b5-9d33-2f082c92a33a
+          role: system
+          text: "# Role\n你是一个极具洞察力和情绪价值的创新伙伴 Doraoumen。\n\n# Task\n基于当前的创新进度，生成一段自然、温暖且具有高维度概括力的对话。\n\
+            \n# Rules\n1. **禁止细节剧透**：严禁在正文中列出具体的选项内容或具体的 A/B/C 方案。\n2. **高维度概括**：\n\
+            \   - 针对用户提到的痛点，用一句话总结其背后的本质矛盾。\n   - 给予正向的情绪反馈（如：认可、鼓励、共情）。\n3. **结构要求**：\n\
+            \   - 第一行：感性的情绪回应（带入 Doraoumen 的性格）。\n   - 第二行：对当前痛点的本质洞察（不涉及具体解法）。\n\
+            \   - 第三行：自然的过渡引导（引出下方的 LLM 2 推荐问题）。\n4. **格式控制**：使用 <br> 作为换行符。\n\n#\
+            \ Context\n- 历史背景：{{#conversation.chat_history_what#}}\n- 当前教练核心提问：{{#conversation.coach_question#}}"
+        selected: false
+        title: LLM 5
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 89
+      id: '1767946995621'
+      position:
+        x: 1650.200600575898
+        y: 691.1833242747423
+      positionAbsolute:
+        x: 1650.200600575898
+        y: 691.1833242747423
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: is
+            id: ffbd3a05-f535-4d3b-925a-99b5f6d47a26
+            value: en
+            varType: string
+            variable_selector:
+            - '1766046983049'
+            - language_choice
+          id: 'true'
+          logical_operator: and
+        desc: ''
+        selected: false
+        title: IF/ELSE 3
+        type: if-else
+      height: 125
+      id: '1767947285672'
+      position:
+        x: 1948.0221910304035
+        y: 691.1833242747423
+      positionAbsolute:
+        x: 1948.0221910304035
+        y: 691.1833242747423
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: gemini-2.5-pro
+          provider: langgenius/openai_api_compatible/openai_api_compatible
+        prompt_template:
+        - id: de9ffcf2-1e38-4927-b304-75fefd6833d1
+          role: system
+          text: "你的角色是：结构保持型翻译助手\n输入内容{{#1767946995621.text#}}\n\n你的任务是：\n- 将输入的 string\
+            \ 格式 text 翻译成英文\n- text 中可能包含：\n  - JSON\n  - 按钮文案a\n  - 换行符\n  - 公式\n\
+            \  - 特殊标识符\n  - 占位变量\n  - HTML / Markdown 结构\n\n---\n\n# 核心翻译规则（必须严格遵守）\n\
+            \n1. **只翻译“可读文本内容”**\n   - 不翻译：\n     - JSON key\n     - 变量占位符（如 {{xxx}}）\n\
+            \     - 公式符号\n     - 特殊标识符\n     - HTML / Markdown 标签\n     - 按钮结构\n\n\
+            2. **保持原始结构完全不变**\n   - JSON 层级不变\n   - 换行符不变\n   - 标点结构不变\n   - 标签位置不变\n\
+            \   - 不调整字段顺序\n\n3. **不要求逐字翻译**\n   - 允许意译\n   - 但必须保持：\n     - 原始语义\n\
+            \     - 原始语气\n     - 原始用途（提示 / 警告 / 按钮 / 说明）\n\n4. **风格保持**\n   - 正式 →\
+            \ 正式\n   - 口语 → 口语\n   - 产品文案 → 产品风格\n   - 技术说明 → 技术风格\n\n5. **禁止新增或删除任何内容**\n\
+            \   - 只能替换“可翻译文本”\n   - 不得合并字段\n   - 不得拆分句子\n\n\n\n---\n\n# 特殊处理规则\n\n\
+            - 如果遇到以下中文内容（完全匹配）：\n  **“哆啦欧梦”**\n\n- 必须翻译为以下**固定英文表述**（不得改写、不得同义替换）：\n\
+            \  **“Dora'ou'mon”**\n\n- 如果遇到：\n  - 代码块\n  - JSON\n  - 公式\n  - 特殊标识符（如\
+            \ ###, @@, %%）\n  \n  → **只翻译其中的人类可读文本部分**\n  → 其余全部原样保留\n\n- 如果某段内容已经是英文：\n\
+            \  → 保持不变，不重复翻译\n\n\n\n---\n\n# 输出约束（非常重要）\n\n- **只输出翻译后的 text**\n- **不输出任何解释说明**\n\
+            - **不输出多余字符**\n- **输出格式必须与输入结构完全一致**"
+        selected: false
+        title: LLM 6
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 89
+      id: '1767947316616'
+      position:
+        x: 2248.7850469132295
+        y: 615.4157439622571
+      positionAbsolute:
+        x: 2248.7850469132295
+        y: 615.4157439622571
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        desc: ''
+        output_type: string
+        selected: false
+        title: Variable Aggregator 2
+        type: variable-aggregator
+        variables:
+        - - '1767947316616'
+          - text
+        - - '1767946995621'
+          - text
+      height: 136
+      id: '1767947376949'
+      position:
+        x: 2543.6589290691177
+        y: 797.2398327067897
+      positionAbsolute:
+        x: 2543.6589290691177
+        y: 797.2398327067897
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        answer: '{{#1767946838281.output#}}'
+        desc: ''
+        selected: false
+        title: Answer 4
+        type: answer
+        variables: []
+      height: 103
+      id: '1767947901058'
+      position:
+        x: 3178.6160602966333
+        y: 1151.0370290496032
+      positionAbsolute:
+        x: 3178.6160602966333
+        y: 1151.0370290496032
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: gemini-2.5-pro
+          provider: langgenius/openai_api_compatible/openai_api_compatible
+        prompt_template:
+        - id: 35e6e55f-9655-4f5f-b201-a8018e84c3c4
+          role: system
+          text: "你的任务是：  \n【将输入的 JSON 内容翻译成英文】\n\n输入说明：\n- 用户输入的是一个 JSON 格式文本{{#1766478805608.text#}}\n\
+            \n翻译规则（非常重要）：\n1. **只翻译 JSON 中的字符串内容**\n构、层级、key 名、顺序必须完全保持不变**\n3. **不得新增、删除、合并任何字段**\n\
+            4. **输出必须是合法的 JSON，可被直接解析**\n5. **不要逐字直译**\n   - 在不改变原意的前提下\n   - 允许使用更自然、符合英语表达习惯的方式\n\
+            6. **保留原始文本的语气和风格**\n   - 正式内容 → 保持正式\n   - 口语内容 → 保持口语\n   - 宣传/文案 →\
+            \ 保持营销风格\n7. 如果某个字段：\n   - 是数字 / 布尔值 / null → 原样保留\n   - 已经是英文 → 不要重复翻译\n\
+            \n输出要求：\n- **只输出翻译后的 JSON**\n- **不要添加任何解释、注释或多余文本**\n\n约束规则：\n- 严禁修改 JSON\
+            \ 结构\n- 严禁输出非 JSON 内容\n- 严禁在 JSON 外增加任何文字\n- 翻译失败时，也必须返回原 JSON，不要报错说明2.\
+            \ **JSON 的结"
+        selected: false
+        title: LLM 7
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 89
+      id: '1767948065002'
+      position:
+        x: 1283.3442648080072
+        y: -76.5169374202768
+      positionAbsolute:
+        x: 1283.3442648080072
+        y: -76.5169374202768
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: ''
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: gemini-2.5-pro
+          provider: langgenius/openai_api_compatible/openai_api_compatible
+        prompt_template:
+        - id: 18cb7be9-36c5-45ef-a5ba-e49a909d1e96
+          role: system
+          text: "你的任务是：  \n【将输入的 JSON 内容翻译成英文】\n\n输入说明：\n- 用户输入的是一个 JSON 格式文本{{#1766480762861.text#}}\n\
+            \n翻译规则（非常重要）：\n1. **只翻译 JSON 中的字符串内容**\n构、层级、key 名、顺序必须完全保持不变**\n3. **不得新增、删除、合并任何字段**\n\
+            4. **输出必须是合法的 JSON，可被直接解析**\n5. **不要逐字直译**\n   - 在不改变原意的前提下\n   - 允许使用更自然、符合英语表达习惯的方式\n\
+            6. **保留原始文本的语气和风格**\n   - 正式内容 → 保持正式\n   - 口语内容 → 保持口语\n   - 宣传/文案 →\
+            \ 保持营销风格\n7. 如果某个字段：\n   - 是数字 / 布尔值 / null → 原样保留\n   - 已经是英文 → 不要重复翻译\n\
+            \n输出要求：\n- **只输出翻译后的 JSON**\n- **不要添加任何解释、注释或多余文本**\n\n约束规则：\n- 严禁修改 JSON\
+            \ 结构\n- 严禁输出非 JSON 内容\n- 严禁在 JSON 外增加任何文字\n- 翻译失败时，也必须返回原 JSON，不要报错说明2.\
+            \ **JSON 的结"
+        selected: false
+        title: LLM 8
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 89
+      id: '1767948313098'
+      position:
+        x: 1283.3442648080072
+        y: 233.17224204454982
+      positionAbsolute:
+        x: 1283.3442648080072
+        y: 233.17224204454982
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: is
+            id: 20511754-5084-458a-a321-3a8c7dc8418a
+            value: en
+            varType: string
+            variable_selector:
+            - '1766046983049'
+            - language_choice
+          id: 'true'
+          logical_operator: and
+        desc: ''
+        selected: false
+        title: IF/ELSE 4
+        type: if-else
+      height: 125
+      id: '1768199541475'
+      position:
+        x: 1023.3442648080072
+        y: 14.48306257972311
+      positionAbsolute:
+        x: 1023.3442648080072
+        y: 14.48306257972311
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        desc: ''
+        selected: false
+        template: <button data-message="#生成技术方案" data-variant="primary">{{"#生成技术方案"}}</button>
+        title: 技术方案按钮 (1)
+        type: template-transform
+        variables: []
+      height: 53
+      id: '17681996152340'
+      position:
+        x: 1569.0911732522366
+        y: 128.72944617797287
+      positionAbsolute:
+        x: 1569.0911732522366
+        y: 128.72944617797287
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        desc: ''
+        items:
+        - input_type: variable
+          operation: over-write
+          value:
+          - '1766478805608'
+          - text
+          variable_selector:
+          - conversation
+          - inno_ideal
+          write_mode: over-write
+        selected: false
+        title: Variable Assigner 3
+        type: assigner
+        version: '2'
+      height: 85
+      id: '1768199718254'
+      position:
+        x: 723.3442648080072
+        y: 14.48306257972311
+      positionAbsolute:
+        x: 723.3442648080072
+        y: 14.48306257972311
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: is
+            id: a6535126-e25f-48a4-b052-3ea99c96bd66
+            value: en
+            varType: string
+            variable_selector:
+            - '1766046983049'
+            - language_choice
+          id: 'true'
+          logical_operator: and
+        desc: ''
+        selected: false
+        title: IF/ELSE 5
+        type: if-else
+      height: 125
+      id: '1768199903530'
+      position:
+        x: 833.3776915730185
+        y: 217.84060913346326
+      positionAbsolute:
+        x: 833.3776915730185
+        y: 217.84060913346326
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        answer: '{{#1766480762861.text#}}'
+        desc: ''
+        selected: false
+        title: Answer 5
+        type: answer
+        variables: []
+      height: 103
+      id: '1768200583963'
+      position:
+        x: 1338.1244760189152
+        y: 427.03506818825304
+      positionAbsolute:
+        x: 1338.1244760189152
+        y: 427.03506818825304
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    - data:
+        answer: '{{#1766478805608.text#}}
+
+
+          ---------------------------------------------------------
+
+          {{#17681996152340.output#}}'
+        desc: ''
+        selected: false
+        title: Answer 6
+        type: answer
+        variables: []
+      height: 138
+      id: '1768200910702'
+      position:
+        x: 1907.865625391625
+        y: 113.03578138021689
+      positionAbsolute:
+        x: 1907.865625391625
+        y: 113.03578138021689
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 243
+    viewport:
+      x: -2413.1160943825344
+      y: -638.0370414702447
+      zoom: 1.0000000103286977
