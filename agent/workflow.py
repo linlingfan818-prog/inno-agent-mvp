@@ -19,9 +19,17 @@ def route_by_phase(state: AgentState) -> str:
 def route_after_node(state: AgentState) -> str:
     last_msg = state["messages"][-1]
     # If the last message is a ToolMessage (meaning we just transitioned phase),
-    # we should loop back to START so the new phase node can run immediately and greet the user.
+    # we should run the new phase node immediately and greet the user.
     if last_msg.type == "tool":
-        return START
+        phase = state.get("current_phase", "COACH")
+        if phase == "COACH":
+            return "coach_node"
+        elif phase == "PM":
+            return "pm_node"
+        elif phase == "EXPERT":
+            return "expert_node"
+        elif phase == "DONE":
+            return "report_node"
     return END
 
 workflow = StateGraph(AgentState)
@@ -40,11 +48,18 @@ workflow.add_conditional_edges(START, route_by_phase, {
 })
 
 # Each node checks if a transition happened. 
-# If a transition tool was executed, it loops back to START to run the new phase immediately.
+# If a transition tool was executed, it goes to the new phase directly.
 # Otherwise, it goes to END, waiting for the next user input.
-workflow.add_conditional_edges("coach_node", route_after_node, {START: START, END: END})
-workflow.add_conditional_edges("pm_node", route_after_node, {START: START, END: END})
-workflow.add_conditional_edges("expert_node", route_after_node, {START: START, END: END})
+path_map = {
+    "coach_node": "coach_node",
+    "pm_node": "pm_node",
+    "expert_node": "expert_node",
+    "report_node": "report_node",
+    END: END
+}
+workflow.add_conditional_edges("coach_node", route_after_node, path_map)
+workflow.add_conditional_edges("pm_node", route_after_node, path_map)
+workflow.add_conditional_edges("expert_node", route_after_node, path_map)
 workflow.add_edge("report_node", END) # After report, just END.
 
 compiled_graph = workflow.compile(checkpointer=MemorySaver())
