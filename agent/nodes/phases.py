@@ -104,7 +104,8 @@ async def expert_node(state: AgentState, config: RunnableConfig):
         
     return {"messages": [response]}
 
-# --- Report Node ---
+from langchain_core.messages import AIMessage
+
 class FinalReport(BaseModel):
     why: str = Field(description="核心痛点(Why)")
     what: str = Field(description="产品落地方案(What)")
@@ -118,26 +119,60 @@ async def report_node(state: AgentState, config: RunnableConfig):
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
 
-    # Use structured output to summarize the entire conversation into the final data
-    llm_for_report = llm.bind(temperature=0.0)
-    extractor = llm_for_report.with_structured_output(FinalReport)
-    
-    prompt = "分析以上的完整对话历史，提取并生成最终的业务画布和技术立项报告。请严格按照字段要求提取。"
-    sys_msg = SystemMessage(content=prompt)
-    
-    result = await extractor.ainvoke([sys_msg] + state["messages"])
-    
-    return {
-        "why": result.why,
-        "what": result.what,
-        "how": {
-            "cost": result.cost,
-            "milestones": {
-                "M1": result.m1, 
-                "M2": result.m2,
-                "M3": result.m3,
-                "M4": result.m4
-            }
-        },
-        "current_phase": "FINISHED"
-    }
+    try:
+        llm_for_report = llm.bind(temperature=0.0)
+        extractor = llm_for_report.with_structured_output(FinalReport)
+        
+        prompt = "分析以上的完整对话历史，提取并生成最终的业务画布和技术立项报告。请严格按照字段要求提取。"
+        sys_msg = SystemMessage(content=prompt)
+        
+        result = await extractor.ainvoke([sys_msg] + state["messages"])
+        
+        return {
+            "messages": [AIMessage(content="🎉 报告已成功生成！请查看右侧的创新画布了解详情。")],
+            "why": result.why,
+            "what": result.what,
+            "how": {
+                "cost": result.cost,
+                "milestones": {
+                    "M1": result.m1, 
+                    "M2": result.m2,
+                    "M3": result.m3,
+                    "M4": result.m4
+                }
+            },
+            "current_phase": "FINISHED"
+        }
+    except Exception as e:
+        # Fallback: 如果大模型（特别是部分国产模型）不支持 Tool Calling，直接提取它的文本并用正则解析 JSON
+        try:
+            prompt_fallback = "分析以上的完整对话历史，生成最终的业务画布和技术立项报告。你必须且只能返回一段合法的 JSON 字符串，包含以下字段：why, what, cost, m1, m2, m3, m4。不要返回任何其他格式或说明文字。"
+            sys_msg_fb = SystemMessage(content=prompt_fallback)
+            raw_response = await llm.ainvoke([sys_msg_fb] + state["messages"])
+            
+            import json
+            import re
+            json_str = raw_response.content
+            match = re.search(r'\{.*\}', json_str, re.DOTALL)
+            if match:
+                data = json.loads(match.group())
+                return {
+                    "messages": [AIMessage(content="🎉 报告已成功生成！请查看右侧的创新画布了解详情。")],
+                    "why": data.get("why", ""),
+                    "what": data.get("what", ""),
+                    "how": {
+                        "cost": data.get("cost", ""),
+                        "milestones": {
+                            "M1": data.get("m1", ""), 
+                            "M2": data.get("m2", ""),
+                            "M3": data.get("m3", ""),
+                            "M4": data.get("m4", "")
+                        }
+                    },
+                    "current_phase": "FINISHED"
+                }
+        except Exception as fallback_e:
+            pass
+
+        err_msg = f"生成报告时模型解析失败，错误信息: {str(e)}\n\n由于不同大模型的格式支持度不一，解析结构化数据可能失败。请再回复一次“生成报告”让我重试。"
+        return {"messages": [AIMessage(content=err_msg)]}

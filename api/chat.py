@@ -24,14 +24,24 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
 
                 # 通道A：文字打字机流
                 if kind == "on_chat_model_stream":
-                    chunk = event["data"]["chunk"]
-                    if isinstance(chunk, AIMessageChunk) and chunk.content:
-                        data = json.dumps({"chunk": chunk.content}, ensure_ascii=False)
-                        yield f"event: message\ndata: {data}\n\n"
+                    # 报告节点的内部推理（如果模型没按规范调用Tool而是直接输出JSON）不需要在前端打字机显示
+                    if node_name != "report_node":
+                        chunk = event["data"]["chunk"]
+                        if isinstance(chunk, AIMessageChunk) and chunk.content:
+                            data = json.dumps({"chunk": chunk.content}, ensure_ascii=False)
+                            yield f"event: message\ndata: {data}\n\n"
 
                 # 通道B：推送最新的状态 (包含当前阶段和最后生成的数据)
                 elif kind == "on_node_end" and node_name in ["coach_node", "pm_node", "expert_node", "report_node"]:
                     state = await compiled_graph.aget_state(config)
+                    
+                    # 如果是报告节点完成，因为它是非流式的，我们需要手动把它的结果作为 message 推给前端
+                    if node_name == "report_node":
+                        last_msg = state.values.get("messages", [])[-1]
+                        if last_msg.type == "ai":
+                            data = json.dumps({"chunk": last_msg.content}, ensure_ascii=False)
+                            yield f"event: message\ndata: {data}\n\n"
+
                     state_data = {
                         "current_phase": state.values.get("current_phase", "COACH"),
                         "why": state.values.get("why"),
