@@ -4,22 +4,21 @@ services:
   inno-agent:
     build: .
     container_name: inno_agent_mvp
-    # 🌟 Windows Docker 无法使用 network_mode: host，必须显式映射端口
-    ports:
-      - "8001:8001"
+    # 🌟 极其关键：直接肉身站在宿主机网络上，无缝读取 127.0.0.1:3128 代理
+    network_mode: host
     restart: always
     
-    # 允许容器通过 host.docker.internal 访问 Windows 宿主机
+    # extra_hosts 在 host 模式下其实已不需要（因为直通宿主机），保留作为容器间通信的向下兼容
     extra_hosts:
       - "host.docker.internal:host-gateway"
       
     environment:
-      # 🌟 Windows 下必须用 host.docker.internal 替代 127.0.0.1 来访问宿主机的代理软件
-      - HTTP_PROXY=http://host.docker.internal:3128
-      - HTTPS_PROXY=http://host.docker.internal:3128
-      - http_proxy=http://host.docker.internal:3128
-      - https_proxy=http://host.docker.internal:3128
-      # 强行把公司大模型网关放入豁免白名单
+      # 像素级复刻 Dify 成功访问内网模型的代理策略
+      - HTTP_PROXY=http://127.0.0.1:3128
+      - HTTPS_PROXY=http://127.0.0.1:3128
+      - http_proxy=http://127.0.0.1:3128
+      - https_proxy=http://127.0.0.1:3128
+      # 强行把公司大模型网关放入豁免白名单，直连穿透，杜绝自签名证书报错
       - NO_PROXY=localhost,127.0.0.1,host.docker.internal,api.llm-incubator.automotive.cloud
       - no_proxy=localhost,127.0.0.1,host.docker.internal,api.llm-incubator.automotive.cloud
       
