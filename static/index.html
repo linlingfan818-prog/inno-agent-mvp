@@ -312,8 +312,8 @@
                 };
                 document.getElementById('phaseContent').innerText = phaseMap[data.current_phase] || data.current_phase;
             }
-            if(data.why) document.getElementById('whyContent').innerText = data.why || "等待挖掘...";
-            if(data.what) document.getElementById('whatContent').innerText = data.what || "等待挖掘...";
+            document.getElementById('whyContent').innerText = data.why || "等待挖掘...";
+            document.getElementById('whatContent').innerText = data.what || "等待挖掘...";
             if(data.how) {
                 const m = data.how.milestones || {};
                 document.getElementById('howContent').innerHTML = `
