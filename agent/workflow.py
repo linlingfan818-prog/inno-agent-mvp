@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, START, END
 from agent.state import AgentState
-from agent.nodes.phases import coach_node, pm_node, expert_node, report_node, value_node
+from agent.nodes.phases import coach_node, pm_node, expert_node, report_node, value_node, value_report_node
 
 def route_by_phase(state: AgentState) -> str:
     phase = state.get("current_phase", "COACH")
@@ -10,6 +10,8 @@ def route_by_phase(state: AgentState) -> str:
         return "pm_node"
     elif phase == "VALUE":
         return "value_node"
+    elif phase == "VALUE_REPORT":
+        return "value_report_node"
     elif phase == "EXPERT":
         return "expert_node"
     elif phase == "DONE":
@@ -29,6 +31,8 @@ def route_after_node(state: AgentState) -> str:
             return "pm_node"
         elif phase == "VALUE":
             return "value_node"
+        elif phase == "VALUE_REPORT":
+            return "value_report_node"
         elif phase == "EXPERT":
             return "expert_node"
         elif phase == "DONE":
@@ -39,6 +43,7 @@ workflow = StateGraph(AgentState)
 workflow.add_node("coach_node", coach_node)
 workflow.add_node("pm_node", pm_node)
 workflow.add_node("value_node", value_node)
+workflow.add_node("value_report_node", value_report_node)
 workflow.add_node("expert_node", expert_node)
 workflow.add_node("report_node", report_node)
 
@@ -47,6 +52,7 @@ workflow.add_conditional_edges(START, route_by_phase, {
     "coach_node": "coach_node",
     "pm_node": "pm_node",
     "value_node": "value_node",
+    "value_report_node": "value_report_node",
     "expert_node": "expert_node",
     "report_node": "report_node",
     END: END
@@ -59,6 +65,7 @@ path_map = {
     "coach_node": "coach_node",
     "pm_node": "pm_node",
     "value_node": "value_node",
+    "value_report_node": "value_report_node",
     "expert_node": "expert_node",
     "report_node": "report_node",
     END: END
@@ -66,5 +73,6 @@ path_map = {
 workflow.add_conditional_edges("coach_node", route_after_node, path_map)
 workflow.add_conditional_edges("pm_node", route_after_node, path_map)
 workflow.add_conditional_edges("value_node", route_after_node, path_map)
+workflow.add_edge("value_report_node", "expert_node")
 workflow.add_conditional_edges("expert_node", route_after_node, path_map)
 workflow.add_edge("report_node", END)

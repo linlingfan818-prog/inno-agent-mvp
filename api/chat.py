@@ -33,6 +33,7 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                 current_state_data["why"] = initial_state.values.get("why")
                 current_state_data["what"] = initial_state.values.get("what")
                 current_state_data["market_value"] = initial_state.values.get("market_value")
+                current_state_data["value_amount"] = initial_state.values.get("value_amount")
                 current_state_data["how"] = initial_state.values.get("how")
                 if len(initial_state.values.get("messages", [])) > 0:
                     is_first_message = False
@@ -85,6 +86,8 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                             current_state_data["what"] = output["what"]
                         if "market_value" in output:
                             current_state_data["market_value"] = output["market_value"]
+                        if "value_amount" in output:
+                            current_state_data["value_amount"] = output["value_amount"]
                         if "how" in output:
                             current_state_data["how"] = output["how"]
                     
@@ -149,6 +152,7 @@ async def get_history(session_id: str):
             "why": state.values.get("why"),
             "what": state.values.get("what"),
             "market_value": state.values.get("market_value"),
+            "value_amount": state.values.get("value_amount"),
             "how": state.values.get("how"),
             "messages": messages
         }

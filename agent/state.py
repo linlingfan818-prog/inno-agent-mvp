@@ -7,5 +7,8 @@ class AgentState(TypedDict):
     why: Optional[str]
     what: Optional[str]
     market_value: Optional[str]
+    value_amount: Optional[str]
+    generate_value_report: Optional[bool]
     how: Optional[Dict[str, Any]]
     pdf_instructions: Optional[str]
+    generate_tech_report: Optional[bool]
