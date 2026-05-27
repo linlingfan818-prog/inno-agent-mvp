@@ -186,22 +186,29 @@ async def report_node(state: AgentState, config: RunnableConfig):
         
         md_text = result.content
         
+        # 注册中文字体以防止乱码
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        font_path = os.path.join(os.getcwd(), "static", "fonts", "simhei.ttf")
+        if os.path.exists(font_path):
+            pdfmetrics.registerFont(TTFont('SimHei', font_path))
+            
         # 将 Markdown 转换为 HTML
         html_content = markdown.markdown(md_text, extensions=['tables', 'fenced_code'])
         
         # 为了兼容中文PDF，包装一层简单的 HTML 骨架和基础 CSS
-        # xhtml2pdf 对中文字体有特殊要求，我们使用系统常见的字体族或提供默认
+        # xhtml2pdf 只有在明确指定被注册的字体名时才能正常渲染中文
         html_template = f"""
         <html>
         <head>
         <meta charset="utf-8">
         <style>
             @page {{ size: a4 portrait; margin: 2cm; }}
-            body {{ font-family: "Microsoft YaHei", "SimHei", "STHeiti", sans-serif; font-size: 14px; line-height: 1.6; color: #333; }}
-            h1 {{ color: #1e3a8a; text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }}
-            h2 {{ color: #2563eb; margin-top: 20px; }}
-            h3 {{ color: #3b82f6; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; }}
+            body {{ font-family: "SimHei", sans-serif; font-size: 14px; line-height: 1.6; color: #333; }}
+            h1 {{ color: #1e3a8a; text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; font-family: "SimHei"; }}
+            h2 {{ color: #2563eb; margin-top: 20px; font-family: "SimHei"; }}
+            h3 {{ color: #3b82f6; font-family: "SimHei"; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; font-family: "SimHei"; }}
             th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
             th {{ background-color: #f3f4f6; }}
             code {{ background-color: #f1f5f9; padding: 2px 4px; border-radius: 4px; font-family: monospace; }}
