@@ -18,6 +18,20 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
             await checkpointer.setup()
             compiled_graph = workflow.compile(checkpointer=checkpointer)
             
+            # 初始化当前状态，避免 checkpointer 延迟导致读不到最新状态
+            current_state_data = {
+                "current_phase": "COACH",
+                "why": None,
+                "what": None,
+                "how": None
+            }
+            initial_state = await compiled_graph.aget_state(config)
+            if initial_state and initial_state.values:
+                current_state_data["current_phase"] = initial_state.values.get("current_phase", "COACH")
+                current_state_data["why"] = initial_state.values.get("why")
+                current_state_data["what"] = initial_state.values.get("what")
+                current_state_data["how"] = initial_state.values.get("how")
+            
             async for event in compiled_graph.astream_events(inputs, config=config, version="v2"):
                 kind = event["event"]
                 node_name = event.get("name", "")
@@ -33,22 +47,27 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
 
                 # 通道B：推送最新的状态 (包含当前阶段和最后生成的数据)
                 elif kind == "on_node_end" and node_name in ["coach_node", "pm_node", "expert_node", "report_node"]:
-                    state = await compiled_graph.aget_state(config)
+                    # 不要在这里依赖 aget_state()，因为当前 superstep 未结束，checkpoint 还未落盘，会有延迟
+                    # 我们直接从当前节点的输出中提取最新的状态进行覆盖
+                    output = event.get("data", {}).get("output", {})
+                    if isinstance(output, dict):
+                        if "current_phase" in output:
+                            current_state_data["current_phase"] = output["current_phase"]
+                        if "why" in output:
+                            current_state_data["why"] = output["why"]
+                        if "what" in output:
+                            current_state_data["what"] = output["what"]
+                        if "how" in output:
+                            current_state_data["how"] = output["how"]
                     
                     # 如果是报告节点完成，因为它是非流式的，我们需要手动把它的结果作为 message 推给前端
                     if node_name == "report_node":
-                        last_msg = state.values.get("messages", [])[-1]
-                        if last_msg.type == "ai":
-                            data = json.dumps({"chunk": last_msg.content}, ensure_ascii=False)
+                        messages = output.get("messages", []) if isinstance(output, dict) else []
+                        if messages and getattr(messages[-1], "type", "") == "ai":
+                            data = json.dumps({"chunk": getattr(messages[-1], "content", "")}, ensure_ascii=False)
                             yield f"event: message\ndata: {data}\n\n"
 
-                    state_data = {
-                        "current_phase": state.values.get("current_phase", "COACH"),
-                        "why": state.values.get("why"),
-                        "what": state.values.get("what"),
-                        "how": state.values.get("how")
-                    }
-                    yield f"event: state_update\ndata: {json.dumps(state_data, ensure_ascii=False)}\n\n"
+                    yield f"event: state_update\ndata: {json.dumps(current_state_data, ensure_ascii=False)}\n\n"
     except Exception as e:
         import traceback
         err_str = traceback.format_exc()
@@ -80,9 +99,19 @@ async def get_history(session_id: str):
         
         messages = []
         for msg in state.values.get("messages", []):
+            msg_type = getattr(msg, "type", "unknown")
+            content = getattr(msg, "content", "")
+            
+            # 过滤掉系统内部的工具执行日志
+            if msg_type == "tool":
+                continue
+            # 过滤掉大模型纯调用工具而不产生可见文本的空消息
+            if msg_type == "ai" and not content:
+                continue
+                
             messages.append({
-                "role": getattr(msg, "type", "unknown"),
-                "content": getattr(msg, "content", ""),
+                "role": msg_type,
+                "content": content,
                 "name": getattr(msg, "name", None)
             })
             
