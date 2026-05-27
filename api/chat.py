@@ -32,21 +32,28 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                 current_state_data["what"] = initial_state.values.get("what")
                 current_state_data["how"] = initial_state.values.get("how")
             
+            current_running_node = None
+            
             async for event in compiled_graph.astream_events(inputs, config=config, version="v2"):
                 kind = event["event"]
                 node_name = event.get("name", "")
 
+                # 跟踪当前正在运行的 LangGraph 节点
+                if kind == "on_chain_start" and node_name in ["coach_node", "pm_node", "expert_node", "report_node"]:
+                    current_running_node = node_name
+
                 # 通道A：文字打字机流
                 if kind == "on_chat_model_stream":
                     # 报告节点的内部推理（如果模型没按规范调用Tool而是直接输出JSON）不需要在前端打字机显示
-                    if node_name != "report_node":
+                    if current_running_node != "report_node":
                         chunk = event["data"]["chunk"]
                         if isinstance(chunk, AIMessageChunk) and chunk.content:
                             data = json.dumps({"chunk": chunk.content}, ensure_ascii=False)
                             yield f"event: message\ndata: {data}\n\n"
 
                 # 通道B：推送最新的状态 (包含当前阶段和最后生成的数据)
-                elif kind == "on_node_end" and node_name in ["coach_node", "pm_node", "expert_node", "report_node"]:
+                # 注意：LangGraph 节点的结束事件是 on_chain_end，不是 on_node_end！
+                elif kind == "on_chain_end" and node_name in ["coach_node", "pm_node", "expert_node", "report_node"]:
                     # 不要在这里依赖 aget_state()，因为当前 superstep 未结束，checkpoint 还未落盘，会有延迟
                     # 我们直接从当前节点的输出中提取最新的状态进行覆盖
                     output = event.get("data", {}).get("output", {})
