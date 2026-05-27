@@ -3,7 +3,9 @@ from langgraph.graph.message import add_messages
 
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
-    current_phase: str  # "COACH", "PM", "EXPERT", or "DONE"
+    current_phase: str  # "COACH", "PM", "VALUE", "EXPERT", or "DONE"
     why: Optional[str]
     what: Optional[str]
+    market_value: Optional[str]
     how: Optional[Dict[str, Any]]
+    pdf_instructions: Optional[str]

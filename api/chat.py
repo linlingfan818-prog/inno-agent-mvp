@@ -23,6 +23,7 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                 "current_phase": "COACH",
                 "why": None,
                 "what": None,
+                "market_value": None,
                 "how": None
             }
             initial_state = await compiled_graph.aget_state(config)
@@ -31,6 +32,7 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                 current_state_data["current_phase"] = initial_state.values.get("current_phase", "COACH")
                 current_state_data["why"] = initial_state.values.get("why")
                 current_state_data["what"] = initial_state.values.get("what")
+                current_state_data["market_value"] = initial_state.values.get("market_value")
                 current_state_data["how"] = initial_state.values.get("how")
                 if len(initial_state.values.get("messages", [])) > 0:
                     is_first_message = False
@@ -56,7 +58,7 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                 node_name = event.get("name", "")
 
                 # 跟踪当前正在运行的 LangGraph 节点
-                if kind == "on_chain_start" and node_name in ["coach_node", "pm_node", "expert_node", "report_node"]:
+                if kind == "on_chain_start" and node_name in ["coach_node", "pm_node", "value_node", "expert_node", "report_node"]:
                     current_running_node = node_name
 
                 # 通道A：文字打字机流
@@ -70,7 +72,7 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
 
                 # 通道B：推送最新的状态 (包含当前阶段和最后生成的数据)
                 # 注意：LangGraph 节点的结束事件是 on_chain_end，不是 on_node_end！
-                elif kind == "on_chain_end" and node_name in ["coach_node", "pm_node", "expert_node", "report_node"]:
+                elif kind == "on_chain_end" and node_name in ["coach_node", "pm_node", "value_node", "expert_node", "report_node"]:
                     # 不要在这里依赖 aget_state()，因为当前 superstep 未结束，checkpoint 还未落盘，会有延迟
                     # 我们直接从当前节点的输出中提取最新的状态进行覆盖
                     output = event.get("data", {}).get("output", {})
@@ -81,6 +83,8 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                             current_state_data["why"] = output["why"]
                         if "what" in output:
                             current_state_data["what"] = output["what"]
+                        if "market_value" in output:
+                            current_state_data["market_value"] = output["market_value"]
                         if "how" in output:
                             current_state_data["how"] = output["how"]
                     
@@ -144,6 +148,7 @@ async def get_history(session_id: str):
             "current_phase": state.values.get("current_phase", "COACH"),
             "why": state.values.get("why"),
             "what": state.values.get("what"),
+            "market_value": state.values.get("market_value"),
             "how": state.values.get("how"),
             "messages": messages
         }

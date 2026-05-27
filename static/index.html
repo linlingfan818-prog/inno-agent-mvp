@@ -112,6 +112,10 @@
             <div class="summary-content" id="whatContent">等待挖掘...</div>
         </div>
         <div class="summary-card">
+            <h3>市场与商业价值 (Value)</h3>
+            <div class="summary-content" id="valueContent">等待挖掘...</div>
+        </div>
+        <div class="summary-card">
             <h3>技术方案 (How)</h3>
             <div class="summary-content" id="howContent">等待立项...</div>
         </div>
@@ -288,7 +292,7 @@
                 } else {
                     // 默认欢迎语
                     historyDiv.innerHTML = `<div class="message msg-doraoumen">你好！我是你的创新伙伴 Doraoumen 🤖。今天有什么绝妙的创新想法想要一起探讨一下吗？请随时告诉我你的业务痛点或面临的矛盾，我们一起破局。</div>`;
-                    updateCanvasState({current_phase: "COACH", why: "等待挖掘...", what: "等待挖掘...", how: null});
+                    updateCanvasState({current_phase: "COACH", why: "等待挖掘...", what: "等待挖掘...", market_value: "等待挖掘...", how: null});
                 }
             } catch (e) {
                 console.error("无法加载历史记录", e);
@@ -307,6 +311,7 @@
                 const phaseMap = {
                     "COACH": "COACH (发掘痛点)",
                     "PM": "PM (产品落地方案)",
+                    "VALUE": "VALUE (商业价值分析)",
                     "EXPERT": "EXPERT (技术与成本评估)",
                     "FINISHED": "DONE (结题)"
                 };
@@ -314,13 +319,15 @@
             }
             document.getElementById('whyContent').innerText = data.why || "等待挖掘...";
             document.getElementById('whatContent').innerText = data.what || "等待挖掘...";
+            document.getElementById('valueContent').innerText = data.market_value || "等待挖掘...";
             if(data.how) {
                 const m = data.how.milestones || {};
                 document.getElementById('howContent').innerHTML = `
                     <b>项目名称:</b> ${data.how.project_name || '-'}<br><br>
                     <b>方案概览:</b> ${data.how.how_overview || '-'}<br><br>
                     <b>项目范围:</b> ${data.how.scope || '-'}<br><br>
-                    <b>OKRs:</b> <div style="background:#f4f4f5;padding:5px;border-radius:4px;font-size:12px;">${data.how.okrs || '-'}</div><br>
+                    <b>核心目标 (Objective):</b> <div style="background:#f4f4f5;padding:5px;border-radius:4px;font-size:12px;">${data.how.objective || '-'}</div><br>
+                    <b>关键结果 (KRs):</b> <div style="background:#f4f4f5;padding:5px;border-radius:4px;font-size:12px;">${data.how.key_results || '-'}</div><br>
                     <b>预算成本:</b> ${data.how.cost} 万元<br><br>
                     <b>项目里程碑:</b><br>
                     <b>M1:</b> ${m.M1 || '-'}<br>
@@ -433,6 +440,9 @@
                 .replace(/\n/g, "<br>");
             
             html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+
+            // 渲染 Markdown 链接 [text](url)
+            html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" style="color:#3b82f6; text-decoration:underline;">$1</a>');
 
             html = html.replace(/\[选项([A-Z])\](.*?)(\<br\>|$)/g, function(match, letter, content, endBr) {
                 const cleanContent = content.trim();

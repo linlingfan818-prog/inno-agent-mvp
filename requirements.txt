@@ -6,3 +6,5 @@ langgraph
 langgraph-checkpoint-sqlite
 python-dotenv
 aiosqlite
+markdown
+xhtml2pdf

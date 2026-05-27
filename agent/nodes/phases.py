@@ -12,21 +12,27 @@ class TransitionToPM(BaseModel):
     """当用户确认了核心痛点(Why)，并且同意进入具体产品形态(What)讨论时调用此工具。"""
     why: str = Field(description="总结提炼出的核心痛点(Why)")
 
-class TransitionToExpert(BaseModel):
-    """当用户确认了产品边界和需求(What)，并且同意进入技术路线和成本(How)探讨时调用此工具。"""
+class TransitionToValue(BaseModel):
+    """当用户确认了产品边界和需求(What)，并且同意进入商业价值与市场分析(Value)探讨时调用此工具。"""
     what: str = Field(description="总结提炼出的具体创新产品形态(What)")
 
+class TransitionToExpert(BaseModel):
+    """当用户确认了商业价值(Value)，并且同意进入技术路线和成本(How)探讨时调用此工具。"""
+    market_value: str = Field(description="总结提炼出的核心商业价值与市场分析")
+
 class TransitionToDone(BaseModel):
-    """当用户确认了最终的技术路线和落地方案(How)，并且同意结题生成最终报告时调用此工具。"""
+    """当用户确认了最终的技术路线和落地方案(How)，并且同意生成最终PDF报告时调用此工具。"""
     project_name: str = Field(description="项目名称")
     how_overview: str = Field(description="技术方案概览")
     scope: str = Field(description="项目范围")
-    okrs: str = Field(description="核心目标 OKRs")
+    objective: str = Field(description="核心目标 (Objective)")
+    key_results: str = Field(description="关键结果 (KRs) 组成的文本或列表")
     cost: str = Field(description="预算(数字或区间，例如 '130-155')")
     m1: str = Field(description="里程碑1的核心任务")
     m2: str = Field(description="里程碑2的核心任务")
     m3: str = Field(description="里程碑3的核心任务")
     m4: str = Field(description="里程碑4的核心任务")
+    pdf_instructions: str = Field(description="用户对生成PDF技术报告的附加补充要求（若无则为空）")
 
 # Helper to read prompts
 def get_sys_prompt(filename: str) -> str:
@@ -73,12 +79,38 @@ async def pm_node(state: AgentState, config: RunnableConfig):
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
     
+    llm_with_tools = llm.bind_tools([TransitionToValue])
+    response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
+    
+    if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToValue":
+        tool_call_id = response.tool_calls[0]["id"]
+        what_text = response.tool_calls[0].get("args", {}).get("what", "")
+        tool_msg = ToolMessage(
+            tool_call_id=tool_call_id,
+            name="TransitionToValue",
+            content="[系统回复] 已成功切换至 VALUE 阶段。请向用户打招呼并开始探讨市场价值与商业潜力。"
+        )
+        return {
+            "messages": [response, tool_msg],
+            "current_phase": "VALUE",
+            "what": what_text
+        }
+        
+    return {"messages": [response]}
+
+async def value_node(state: AgentState, config: RunnableConfig):
+    sys_content = get_sys_prompt("value.md")
+    sys_msg = SystemMessage(content=sys_content)
+    
+    api_key = config.get("configurable", {}).get("api_key")
+    llm = initialize_llm(custom_api_key=api_key)
+    
     llm_with_tools = llm.bind_tools([TransitionToExpert])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
     
     if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToExpert":
         tool_call_id = response.tool_calls[0]["id"]
-        what_text = response.tool_calls[0].get("args", {}).get("what", "")
+        market_value_text = response.tool_calls[0].get("args", {}).get("market_value", "")
         tool_msg = ToolMessage(
             tool_call_id=tool_call_id,
             name="TransitionToExpert",
@@ -87,7 +119,7 @@ async def pm_node(state: AgentState, config: RunnableConfig):
         return {
             "messages": [response, tool_msg],
             "current_phase": "EXPERT",
-            "what": what_text
+            "market_value": market_value_text
         }
         
     return {"messages": [response]}
@@ -108,16 +140,18 @@ async def expert_node(state: AgentState, config: RunnableConfig):
         tool_msg = ToolMessage(
             tool_call_id=tool_call_id,
             name="TransitionToDone",
-            content="[系统回复] 已成功结题。报告生成节点将被触发。"
+            content="[系统回复] 已成功确认。PDF报告生成节点将被触发。"
         )
         return {
             "messages": [response, tool_msg],
             "current_phase": "DONE",
+            "pdf_instructions": args.get("pdf_instructions", ""),
             "how": {
                 "project_name": args.get("project_name", ""),
                 "how_overview": args.get("how_overview", ""),
                 "scope": args.get("scope", ""),
-                "okrs": args.get("okrs", ""),
+                "objective": args.get("objective", ""),
+                "key_results": args.get("key_results", ""),
                 "cost": args.get("cost", ""),
                 "milestones": {
                     "M1": args.get("m1", ""),
@@ -131,86 +165,81 @@ async def expert_node(state: AgentState, config: RunnableConfig):
     return {"messages": [response]}
 
 from langchain_core.messages import AIMessage
-
-class FinalReport(BaseModel):
-    why: str = Field(description="核心痛点(Why)")
-    what: str = Field(description="产品落地方案(What)")
-    project_name: str = Field(description="项目名称")
-    how_overview: str = Field(description="技术方案概览")
-    scope: str = Field(description="项目范围")
-    okrs: str = Field(description="核心目标 OKRs")
-    cost: str = Field(description="预算(数字或区间，例如 '130-155')")
-    m1: str = Field(description="里程碑1的核心任务")
-    m2: str = Field(description="里程碑2的核心任务")
-    m3: str = Field(description="里程碑3的核心任务")
-    m4: str = Field(description="里程碑4的核心任务")
+import uuid
+import markdown
+from xhtml2pdf import pisa
 
 async def report_node(state: AgentState, config: RunnableConfig):
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
 
     try:
-        llm_for_report = llm.bind(temperature=0.0)
-        extractor = llm_for_report.with_structured_output(FinalReport)
+        # 直接使用大模型基于上下文和附加要求生成 Markdown 报告
+        pdf_instructions = state.get("pdf_instructions", "")
+        prompt = "请基于我们之前的完整探讨，撰写一份正式的、专业详尽的《技术立项白皮书》(PDF适用)。\n"
+        if pdf_instructions:
+            prompt += f"\n【用户特别嘱咐】：{pdf_instructions}\n"
+        prompt += "\n报告结构应至少包含：1. 项目背景与痛点(Why) 2. 创新产品与商业价值(What/Value) 3. 技术方案架构(How) 4. OKRs与里程碑 5. 成本与资源。请确保排版精美，语言富有商业感染力与技术严谨性。"
         
-        prompt = "分析以上的完整对话历史，提取并生成最终的业务画布和技术立项报告。请严格按照字段要求提取。"
         sys_msg = SystemMessage(content=prompt)
+        result = await llm.ainvoke([sys_msg] + state["messages"])
         
-        result = await extractor.ainvoke([sys_msg] + state["messages"])
+        md_text = result.content
         
+        # 将 Markdown 转换为 HTML
+        html_content = markdown.markdown(md_text, extensions=['tables', 'fenced_code'])
+        
+        # 为了兼容中文PDF，包装一层简单的 HTML 骨架和基础 CSS
+        # xhtml2pdf 对中文字体有特殊要求，我们使用系统常见的字体族或提供默认
+        html_template = f"""
+        <html>
+        <head>
+        <meta charset="utf-8">
+        <style>
+            @page {{ size: a4 portrait; margin: 2cm; }}
+            body {{ font-family: "Microsoft YaHei", "SimHei", "STHeiti", sans-serif; font-size: 14px; line-height: 1.6; color: #333; }}
+            h1 {{ color: #1e3a8a; text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }}
+            h2 {{ color: #2563eb; margin-top: 20px; }}
+            h3 {{ color: #3b82f6; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; }}
+            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+            th {{ background-color: #f3f4f6; }}
+            code {{ background-color: #f1f5f9; padding: 2px 4px; border-radius: 4px; font-family: monospace; }}
+        </style>
+        </head>
+        <body>
+        {html_content}
+        </body>
+        </html>
+        """
+        
+        # 保存为 PDF
+        report_id = str(uuid.uuid4())[:8]
+        # 若是部署环境，建议映射到外部持久卷，这里放在当前目录的 static/reports 下
+        reports_dir = os.path.join(os.getcwd(), "static", "reports")
+        os.makedirs(reports_dir, exist_ok=True)
+        
+        file_name = f"InnoReport_{report_id}.pdf"
+        file_path = os.path.join(reports_dir, file_name)
+        
+        with open(file_path, "w+b") as result_file:
+            pisa_status = pisa.CreatePDF(html_template.encode('utf-8'), dest=result_file)
+            
+        if pisa_status.err:
+            raise Exception("PDF Generation Error by xhtml2pdf")
+            
+        download_url = f"/static/reports/{file_name}"
+        
+        success_msg = f"🎉 报告已生成！\n\n📄 **[点击此处下载《技术立项白皮书》 PDF 版]({download_url})**"
+        
+        # 由于我们取消了工具调用输出结构化数据，我们将直接返回现有 state 的 How 数据（通过之前 expert 的工具参数拿到）
+        # 这里只需要追加生成的 PDF 下载链接
         return {
-            "messages": [AIMessage(content="🎉 报告已成功生成！请查看右侧的创新画布了解详情。")],
-            "why": result.why,
-            "what": result.what,
-            "how": {
-                "project_name": result.project_name,
-                "how_overview": result.how_overview,
-                "scope": result.scope,
-                "okrs": result.okrs,
-                "cost": result.cost,
-                "milestones": {
-                    "M1": result.m1, 
-                    "M2": result.m2,
-                    "M3": result.m3,
-                    "M4": result.m4
-                }
-            },
+            "messages": [AIMessage(content=success_msg)],
             "current_phase": "FINISHED"
         }
     except Exception as e:
-        # Fallback: 如果大模型（特别是部分国产模型）不支持 Tool Calling，直接提取它的文本并用正则解析 JSON
-        try:
-            prompt_fallback = "分析以上的完整对话历史，生成最终的业务画布和技术立项报告。你必须且只能返回一段合法的 JSON 字符串，包含以下字段：why, what, project_name, how_overview, scope, okrs, cost, m1, m2, m3, m4。不要返回任何其他格式或说明文字。"
-            sys_msg_fb = SystemMessage(content=prompt_fallback)
-            raw_response = await llm.ainvoke([sys_msg_fb] + state["messages"])
-            
-            import json
-            import re
-            json_str = raw_response.content
-            match = re.search(r'\{.*\}', json_str, re.DOTALL)
-            if match:
-                data = json.loads(match.group())
-                return {
-                    "messages": [AIMessage(content="🎉 报告已成功生成！请查看右侧的创新画布了解详情。")],
-                    "why": data.get("why", ""),
-                    "what": data.get("what", ""),
-                    "how": {
-                        "project_name": data.get("project_name", ""),
-                        "how_overview": data.get("how_overview", ""),
-                        "scope": data.get("scope", ""),
-                        "okrs": data.get("okrs", ""),
-                        "cost": data.get("cost", ""),
-                        "milestones": {
-                            "M1": data.get("m1", ""), 
-                            "M2": data.get("m2", ""),
-                            "M3": data.get("m3", ""),
-                            "M4": data.get("m4", "")
-                        }
-                    },
-                    "current_phase": "FINISHED"
-                }
-        except Exception as fallback_e:
-            pass
-
-        err_msg = f"生成报告时模型解析失败，错误信息: {str(e)}\n\n由于不同大模型的格式支持度不一，解析结构化数据可能失败。请再回复一次“生成报告”让我重试。"
+        err_msg = f"抱歉，PDF 报告生成过程中出现了错误: {str(e)}\n\n您可以稍后尝试重试。"
         return {"messages": [AIMessage(content=err_msg)]}
+
+
