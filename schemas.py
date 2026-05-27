@@ -6,6 +6,7 @@ class ChatPayload(BaseModel):
     message: str
     session_id: str
     api_key: Optional[str] = None
+    username: Optional[str] = None  # 外部系统传进来的用户账号
 
 class CanvasData(BaseModel):
     why: str = Field(description="一句话总结业务痛点或矛盾")

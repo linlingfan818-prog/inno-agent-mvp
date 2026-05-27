@@ -9,3 +9,4 @@ aiosqlite
 markdown
 reportlab==3.6.13
 xhtml2pdf
+httpx

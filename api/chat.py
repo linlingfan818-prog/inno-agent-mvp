@@ -9,8 +9,8 @@ from agent.config import initialize_llm
 
 router = APIRouter()
 
-async def dual_channel_stream(user_message: str, session_id: str, api_key: str = None):
-    config = {"configurable": {"thread_id": session_id, "api_key": api_key}}
+async def dual_channel_stream(user_message: str, session_id: str, api_key: str = None, username: str = None):
+    config = {"configurable": {"thread_id": session_id, "api_key": api_key, "username": username or "anonymous"}}
     inputs = {"messages": [("user", user_message)]}
 
     try:
@@ -109,7 +109,7 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
 @router.post("/chat")
 async def chat_endpoint(payload: ChatPayload):
     return StreamingResponse(
-        dual_channel_stream(payload.message, payload.session_id, payload.api_key), 
+        dual_channel_stream(payload.message, payload.session_id, payload.api_key, payload.username), 
         media_type="text/event-stream"
     )
 

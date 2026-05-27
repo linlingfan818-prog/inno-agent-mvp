@@ -57,6 +57,12 @@
 
     <div class="config-panel">
         <h3>Agent Config</h3>
+        
+        <label>Username (外部账号模拟)</label>
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="usernameInput" placeholder="例如：alice" style="margin-bottom: 0;">
+        </div>
+
         <label>API Key</label>
         <div style="display: flex; gap: 5px; margin-bottom: 15px;">
             <input type="password" id="apiKey" placeholder="输入 Key" style="margin-bottom: 0;">
@@ -189,6 +195,16 @@
         apiKeyInput.addEventListener("change", (e) => {
             localStorage.setItem("api_key", e.target.value);
             document.getElementById('keyStatus').innerText = "";
+        });
+
+        const usernameInput = document.getElementById('usernameInput');
+        const savedUsername = localStorage.getItem("username");
+        if (savedUsername) {
+            usernameInput.value = savedUsername;
+        }
+        
+        usernameInput.addEventListener("change", (e) => {
+            localStorage.setItem("username", e.target.value);
         });
 
         async function checkKey() {
@@ -402,6 +418,7 @@
             const aiBubble = appendMessage('', 'doraoumen');
             let fullAiResponse = "";
             const currentApiKey = document.getElementById('apiKey').value;
+            const currentUsername = document.getElementById('usernameInput').value;
             
             // 锁定当前发送请求时的 sessionId
             const requestSessionId = sessionId;
@@ -413,7 +430,8 @@
                     body: JSON.stringify({ 
                         message: msg, 
                         session_id: requestSessionId,
-                        api_key: currentApiKey || undefined
+                        api_key: currentApiKey || undefined,
+                        username: currentUsername || undefined
                     })
                 });
 

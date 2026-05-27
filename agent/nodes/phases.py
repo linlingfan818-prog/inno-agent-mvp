@@ -237,7 +237,48 @@ async def report_node(state: AgentState, config: RunnableConfig):
             
         download_url = f"/static/reports/{file_name}"
         
-        success_msg = f"🎉 报告已生成！\n\n📄 **[点击此处下载《技术立项白皮书》 PDF 版]({download_url})**"
+        # 尝试上传到外部数据后台
+        import httpx
+        username = config.get("configurable", {}).get("username")
+        if not username:
+            username = "anonymous"
+            
+        session_id = config.get("configurable", {}).get("thread_id", "unknown_session")
+        project_name = state.get("how", {}).get("project_name", "未命名项目")
+        
+        api_base = os.environ.get("DATA_API_BASE_URL", "http://localhost:8080")
+        external_api_key = os.environ.get("EXTERNAL_API_KEY", "")
+        
+        upload_status = ""
+        if external_api_key:
+            try:
+                async with httpx.AsyncClient() as client:
+                    with open(file_path, "rb") as f:
+                        files = {'file': (file_name, f, 'application/pdf')}
+                        data = {
+                            'conversationId': session_id,
+                            'title': project_name,
+                            'username': username
+                        }
+                        headers = {"X-API-Key": external_api_key}
+                        
+                        resp = await client.post(
+                            f"{api_base}/api/external/files",
+                            data=data,
+                            files=files,
+                            headers=headers,
+                            timeout=30.0
+                        )
+                        if str(resp.status_code).startswith("2"):
+                            upload_status = "✅ 自动同步：报告已成功上传至数据后台归档！"
+                        else:
+                            upload_status = f"⚠️ 自动同步失败：HTTP {resp.status_code} - {resp.text}"
+            except Exception as ex:
+                upload_status = f"⚠️ 自动同步异常：网络请求失败或超时 ({str(ex)})"
+        else:
+            upload_status = "ℹ️ 未配置 EXTERNAL_API_KEY，跳过自动同步步骤。"
+
+        success_msg = f"🎉 报告已生成！\n\n📄 **[点击此处下载《技术立项白皮书》 PDF 版]({download_url})**\n\n{upload_status}"
         
         # 由于我们取消了工具调用输出结构化数据，我们将直接返回现有 state 的 How 数据（通过之前 expert 的工具参数拿到）
         # 这里只需要追加生成的 PDF 下载链接
