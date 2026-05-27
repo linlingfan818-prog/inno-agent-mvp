@@ -38,13 +38,16 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
             # 首轮对话生成标题
             if is_first_message:
                 try:
-                    llm = initialize_llm(custom_api_key=api_key)
+                    llm_title = initialize_llm(custom_api_key=api_key)
                     prompt = f"请将下面这句话总结为一个5-10个字的极短标题，不要包含任何标点符号：\n{user_message}"
-                    title_res = await llm.ainvoke(prompt)
+                    title_res = await llm_title.ainvoke(prompt)
                     title_text = title_res.content.strip(' "”\'\n。，')
+                    if not title_text:
+                        title_text = "新对话"
                     yield f"event: title_update\ndata: {json.dumps({'title': title_text}, ensure_ascii=False)}\n\n"
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"⚠️ [Title Gen Error]: {e}", flush=True)
+                    yield f"event: title_update\ndata: {json.dumps({'title': '新业务探讨'}, ensure_ascii=False)}\n\n"
             
             current_running_node = None
             
