@@ -26,11 +26,25 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                 "how": None
             }
             initial_state = await compiled_graph.aget_state(config)
+            is_first_message = True
             if initial_state and initial_state.values:
                 current_state_data["current_phase"] = initial_state.values.get("current_phase", "COACH")
                 current_state_data["why"] = initial_state.values.get("why")
                 current_state_data["what"] = initial_state.values.get("what")
                 current_state_data["how"] = initial_state.values.get("how")
+                if len(initial_state.values.get("messages", [])) > 0:
+                    is_first_message = False
+
+            # 首轮对话生成标题
+            if is_first_message:
+                try:
+                    llm = initialize_llm(custom_api_key=api_key)
+                    prompt = f"请将下面这句话总结为一个5-10个字的极短标题，不要包含任何标点符号：\n{user_message}"
+                    title_res = await llm.ainvoke(prompt)
+                    title_text = title_res.content.strip(' "”\'\n。，')
+                    yield f"event: title_update\ndata: {json.dumps({'title': title_text}, ensure_ascii=False)}\n\n"
+                except Exception:
+                    pass
             
             current_running_node = None
             
@@ -142,3 +156,28 @@ async def check_api_key(payload: CheckKeyPayload):
         return {"status": "success", "message": "API Key 验证通过！连接正常。"}
     except Exception as e:
         return {"status": "error", "message": f"连接失败: {str(e)}"}
+
+import aiosqlite
+
+@router.delete("/history/{session_id}")
+async def delete_session(session_id: str):
+    try:
+        async with aiosqlite.connect("checkpoints.sqlite") as db:
+            await db.execute("DELETE FROM checkpoints WHERE thread_id = ?", (session_id,))
+            await db.execute("DELETE FROM checkpoint_writes WHERE thread_id = ?", (session_id,))
+            await db.commit()
+        return {"status": "success", "message": "会话已删除"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.get("/billing/token-usage")
+async def get_token_usage():
+    # Mock data，后续可替换为对接内部平台的真实计费接口
+    return {
+        "status": "success",
+        "data": {
+            "total_tokens": 12580,
+            "estimated_cost": 0.25,
+            "currency": "USD"
+        }
+    }

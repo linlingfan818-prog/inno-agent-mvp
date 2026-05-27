@@ -68,6 +68,18 @@
             <button onclick="newSession()" style="width: 100%; padding: 8px; background: #ea580c; color: white; border: none; border-radius: 4px; cursor: pointer;">+ 开启新对话</button>
         </div>
 
+        <div style="margin-top: 20px; font-size: 12px; background: #27272a; padding: 10px; border-radius: 4px;">
+            <div style="color: #a1a1aa; margin-bottom: 5px;">Token 消耗统计 (Mock)</div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Total Tokens:</span>
+                <span id="tokenCount" style="color: #3b82f6;">0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                <span>Estimated Cost:</span>
+                <span id="tokenCost" style="color: #22c55e;">$0.00</span>
+            </div>
+        </div>
+
         <h4 style="margin-top: 30px; border-bottom: 1px solid #3f3f46; padding-bottom: 10px;">历史对话记录</h4>
         <div id="sessionList" style="font-size: 14px; max-height: 300px; overflow-y: auto;">
             <!-- 动态渲染历史列表 -->
@@ -162,7 +174,7 @@
         async function newSession() {
             sessionId = "session_" + Math.random().toString(36).substr(2, 9);
             localStorage.setItem("session_id", sessionId);
-            sessions.unshift({ id: sessionId, time: new Date().toLocaleString() });
+            sessions.unshift({ id: sessionId, title: new Date().toLocaleString() });
             localStorage.setItem("sessions", JSON.stringify(sessions));
             
             renderSessionList();
@@ -188,7 +200,28 @@
                 div.style.borderRadius = '4px';
                 div.style.cursor = 'pointer';
                 div.style.backgroundColor = s.id === sessionId ? '#3f3f46' : 'transparent';
-                div.innerText = s.time;
+                div.style.display = 'flex';
+                div.style.justifyContent = 'space-between';
+                div.style.alignItems = 'center';
+                
+                const titleSpan = document.createElement('span');
+                titleSpan.innerText = s.title || s.time || "新对话";
+                titleSpan.style.overflow = 'hidden';
+                titleSpan.style.textOverflow = 'ellipsis';
+                titleSpan.style.whiteSpace = 'nowrap';
+                
+                const delBtn = document.createElement('span');
+                delBtn.innerText = '🗑️';
+                delBtn.style.fontSize = '12px';
+                delBtn.style.cursor = 'pointer';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteSession(s.id);
+                };
+                
+                div.appendChild(titleSpan);
+                div.appendChild(delBtn);
+                
                 div.onclick = () => switchSession(s.id);
                 
                 div.onmouseover = () => { if(s.id !== sessionId) div.style.backgroundColor = '#27272a'; };
@@ -196,6 +229,41 @@
                 
                 listEl.appendChild(div);
             });
+        }
+
+        async function deleteSession(id) {
+            if(!confirm("确定要删除这个会话吗？")) return;
+            
+            try {
+                await fetch(`/api/v1/history/${id}`, { method: 'DELETE' });
+                sessions = sessions.filter(s => s.id !== id);
+                localStorage.setItem("sessions", JSON.stringify(sessions));
+                
+                if (id === sessionId) {
+                    if (sessions.length > 0) {
+                        switchSession(sessions[0].id);
+                    } else {
+                        newSession();
+                    }
+                } else {
+                    renderSessionList();
+                }
+            } catch (e) {
+                console.error("删除失败", e);
+            }
+        }
+
+        async function loadTokenUsage() {
+            try {
+                const res = await fetch('/api/v1/billing/token-usage');
+                const data = await res.json();
+                if (data.status === 'success') {
+                    document.getElementById('tokenCount').innerText = data.data.total_tokens.toLocaleString();
+                    document.getElementById('tokenCost').innerText = `$${data.data.estimated_cost.toFixed(2)}`;
+                }
+            } catch (e) {
+                console.error("获取计费信息失败", e);
+            }
         }
 
         async function loadHistory() {
@@ -231,6 +299,7 @@
         window.onload = async () => {
             renderSessionList();
             await loadHistory();
+            await loadTokenUsage();
         };
 
         function updateCanvasState(data) {
@@ -246,12 +315,18 @@
             if(data.why) document.getElementById('whyContent').innerText = data.why || "等待挖掘...";
             if(data.what) document.getElementById('whatContent').innerText = data.what || "等待挖掘...";
             if(data.how) {
+                const m = data.how.milestones || {};
                 document.getElementById('howContent').innerHTML = `
-                    <b>预算:</b> ${data.how.cost} 万元<br>
-                    <b>M1:</b> ${data.how.milestones.M1}<br>
-                    <b>M2:</b> ${data.how.milestones.M2}<br>
-                    <b>M3:</b> ${data.how.milestones.M3}<br>
-                    <b>M4:</b> ${data.how.milestones.M4}
+                    <b>项目名称:</b> ${data.how.project_name || '-'}<br><br>
+                    <b>方案概览:</b> ${data.how.how_overview || '-'}<br><br>
+                    <b>项目范围:</b> ${data.how.scope || '-'}<br><br>
+                    <b>OKRs:</b> <div style="background:#f4f4f5;padding:5px;border-radius:4px;font-size:12px;">${data.how.okrs || '-'}</div><br>
+                    <b>预算成本:</b> ${data.how.cost} 万元<br><br>
+                    <b>项目里程碑:</b><br>
+                    <b>M1:</b> ${m.M1 || '-'}<br>
+                    <b>M2:</b> ${m.M2 || '-'}<br>
+                    <b>M3:</b> ${m.M3 || '-'}<br>
+                    <b>M4:</b> ${m.M4 || '-'}
                 `;
             } else {
                 document.getElementById('howContent').innerHTML = "等待立项...";
@@ -320,6 +395,14 @@
                             else if (eventType === 'state_update') {
                                 if (requestSessionId === sessionId) {
                                     updateCanvasState(data);
+                                }
+                            }
+                            else if (eventType === 'title_update') {
+                                const sessionIndex = sessions.findIndex(s => s.id === requestSessionId);
+                                if (sessionIndex !== -1) {
+                                    sessions[sessionIndex].title = data.title;
+                                    localStorage.setItem("sessions", JSON.stringify(sessions));
+                                    renderSessionList();
                                 }
                             }
                         }

@@ -18,6 +18,10 @@ class TransitionToExpert(BaseModel):
 
 class TransitionToDone(BaseModel):
     """当用户确认了最终的技术路线和落地方案(How)，并且同意结题生成最终报告时调用此工具。"""
+    project_name: str = Field(description="项目名称")
+    how_overview: str = Field(description="技术方案概览")
+    scope: str = Field(description="项目范围")
+    okrs: str = Field(description="核心目标 OKRs")
     cost: str = Field(description="预算(数字或区间，例如 '130-155')")
     m1: str = Field(description="里程碑1的核心任务")
     m2: str = Field(description="里程碑2的核心任务")
@@ -110,6 +114,10 @@ async def expert_node(state: AgentState, config: RunnableConfig):
             "messages": [response, tool_msg],
             "current_phase": "DONE",
             "how": {
+                "project_name": args.get("project_name", ""),
+                "how_overview": args.get("how_overview", ""),
+                "scope": args.get("scope", ""),
+                "okrs": args.get("okrs", ""),
                 "cost": args.get("cost", ""),
                 "milestones": {
                     "M1": args.get("m1", ""),
@@ -127,6 +135,10 @@ from langchain_core.messages import AIMessage
 class FinalReport(BaseModel):
     why: str = Field(description="核心痛点(Why)")
     what: str = Field(description="产品落地方案(What)")
+    project_name: str = Field(description="项目名称")
+    how_overview: str = Field(description="技术方案概览")
+    scope: str = Field(description="项目范围")
+    okrs: str = Field(description="核心目标 OKRs")
     cost: str = Field(description="预算(数字或区间，例如 '130-155')")
     m1: str = Field(description="里程碑1的核心任务")
     m2: str = Field(description="里程碑2的核心任务")
@@ -151,6 +163,10 @@ async def report_node(state: AgentState, config: RunnableConfig):
             "why": result.why,
             "what": result.what,
             "how": {
+                "project_name": result.project_name,
+                "how_overview": result.how_overview,
+                "scope": result.scope,
+                "okrs": result.okrs,
                 "cost": result.cost,
                 "milestones": {
                     "M1": result.m1, 
@@ -164,7 +180,7 @@ async def report_node(state: AgentState, config: RunnableConfig):
     except Exception as e:
         # Fallback: 如果大模型（特别是部分国产模型）不支持 Tool Calling，直接提取它的文本并用正则解析 JSON
         try:
-            prompt_fallback = "分析以上的完整对话历史，生成最终的业务画布和技术立项报告。你必须且只能返回一段合法的 JSON 字符串，包含以下字段：why, what, cost, m1, m2, m3, m4。不要返回任何其他格式或说明文字。"
+            prompt_fallback = "分析以上的完整对话历史，生成最终的业务画布和技术立项报告。你必须且只能返回一段合法的 JSON 字符串，包含以下字段：why, what, project_name, how_overview, scope, okrs, cost, m1, m2, m3, m4。不要返回任何其他格式或说明文字。"
             sys_msg_fb = SystemMessage(content=prompt_fallback)
             raw_response = await llm.ainvoke([sys_msg_fb] + state["messages"])
             
@@ -179,6 +195,10 @@ async def report_node(state: AgentState, config: RunnableConfig):
                     "why": data.get("why", ""),
                     "what": data.get("what", ""),
                     "how": {
+                        "project_name": data.get("project_name", ""),
+                        "how_overview": data.get("how_overview", ""),
+                        "scope": data.get("scope", ""),
+                        "okrs": data.get("okrs", ""),
                         "cost": data.get("cost", ""),
                         "milestones": {
                             "M1": data.get("m1", ""), 
