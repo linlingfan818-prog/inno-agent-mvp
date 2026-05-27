@@ -151,11 +151,33 @@
         // 分享会话功能
         function shareSession() {
             const shareUrl = window.location.origin + window.location.pathname + "?session_id=" + sessionId;
-            navigator.clipboard.writeText(shareUrl).then(() => {
-                alert("🎉 分享链接已复制到剪贴板！\n您可以把它发送给同事，他们打开后就能在自己的浏览器上看到这个会话的完整记录和 PDF 了！\n\n链接: " + shareUrl);
-            }).catch(err => {
-                alert("复制失败，请手动复制此链接分享：\n" + shareUrl);
-            });
+            
+            // 如果是在 HTTPS 或 localhost 下，使用现代的 Clipboard API
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    alert("🎉 分享链接已复制到剪贴板！\n您可以把它发送给同事，他们打开后就能在自己的浏览器上看到这个会话的完整记录和 PDF 了！\n\n链接: " + shareUrl);
+                }).catch(err => {
+                    alert("复制失败，请手动复制此链接分享：\n" + shareUrl);
+                });
+            } else {
+                // 如果是在 HTTP 的局域网 IP 下，使用传统的 execCommand 降级方案
+                let textArea = document.createElement("textarea");
+                textArea.value = shareUrl;
+                // 确保文本域不在视图中
+                textArea.style.position = "fixed";
+                textArea.style.left = "-999999px";
+                textArea.style.top = "-999999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    alert("🎉 分享链接已复制到剪贴板！\n您可以把它发送给同事，他们打开后就能在自己的浏览器上看到这个会话的完整记录和 PDF 了！\n\n链接: " + shareUrl);
+                } catch (err) {
+                    alert("复制失败，您的浏览器不支持自动复制，请手动复制此链接分享：\n" + shareUrl);
+                }
+                document.body.removeChild(textArea);
+            }
         }
 
         const apiKeyInput = document.getElementById('apiKey');
