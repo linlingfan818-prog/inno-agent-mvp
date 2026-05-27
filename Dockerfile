@@ -11,6 +11,14 @@ ENV TZ=Asia/Shanghai
 # 复制依赖描述文件
 COPY requirements.txt .
 
+# 🌟 核心防御：安装生成 PDF (xhtml2pdf / pycairo) 所需的底层 C++ 编译器和图形库依赖
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libcairo2-dev \
+    pkg-config \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # 🌟 核心防御：在内网打包时，强行指定清华源，并把超时时间拉长到 1000 秒，防止 pip 安装超时流产
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt  --default-timeout=1000
