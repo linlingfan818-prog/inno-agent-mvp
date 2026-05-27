@@ -10,15 +10,19 @@ from agent.config import initialize_llm
 
 class TransitionToPM(BaseModel):
     """当用户确认了核心痛点(Why)，并且同意进入具体产品形态(What)讨论时调用此工具。"""
-    pass
+    why: str = Field(description="总结提炼出的核心痛点(Why)")
 
 class TransitionToExpert(BaseModel):
     """当用户确认了产品边界和需求(What)，并且同意进入技术路线和成本(How)探讨时调用此工具。"""
-    pass
+    what: str = Field(description="总结提炼出的具体创新产品形态(What)")
 
 class TransitionToDone(BaseModel):
     """当用户确认了最终的技术路线和落地方案(How)，并且同意结题生成最终报告时调用此工具。"""
-    pass
+    cost: str = Field(description="预算(数字或区间，例如 '130-155')")
+    m1: str = Field(description="里程碑1的核心任务")
+    m2: str = Field(description="里程碑2的核心任务")
+    m3: str = Field(description="里程碑3的核心任务")
+    m4: str = Field(description="里程碑4的核心任务")
 
 # Helper to read prompts
 def get_sys_prompt(filename: str) -> str:
@@ -44,6 +48,7 @@ async def coach_node(state: AgentState, config: RunnableConfig):
     if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToPM":
         # Handle the transition
         tool_call_id = response.tool_calls[0]["id"]
+        why_text = response.tool_calls[0].get("args", {}).get("why", "")
         tool_msg = ToolMessage(
             tool_call_id=tool_call_id,
             name="TransitionToPM",
@@ -51,7 +56,8 @@ async def coach_node(state: AgentState, config: RunnableConfig):
         )
         return {
             "messages": [response, tool_msg],
-            "current_phase": "PM"
+            "current_phase": "PM",
+            "why": why_text
         }
         
     return {"messages": [response]}
@@ -68,6 +74,7 @@ async def pm_node(state: AgentState, config: RunnableConfig):
     
     if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToExpert":
         tool_call_id = response.tool_calls[0]["id"]
+        what_text = response.tool_calls[0].get("args", {}).get("what", "")
         tool_msg = ToolMessage(
             tool_call_id=tool_call_id,
             name="TransitionToExpert",
@@ -75,7 +82,8 @@ async def pm_node(state: AgentState, config: RunnableConfig):
         )
         return {
             "messages": [response, tool_msg],
-            "current_phase": "EXPERT"
+            "current_phase": "EXPERT",
+            "what": what_text
         }
         
     return {"messages": [response]}
@@ -92,6 +100,7 @@ async def expert_node(state: AgentState, config: RunnableConfig):
     
     if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToDone":
         tool_call_id = response.tool_calls[0]["id"]
+        args = response.tool_calls[0].get("args", {})
         tool_msg = ToolMessage(
             tool_call_id=tool_call_id,
             name="TransitionToDone",
@@ -99,7 +108,16 @@ async def expert_node(state: AgentState, config: RunnableConfig):
         )
         return {
             "messages": [response, tool_msg],
-            "current_phase": "DONE"
+            "current_phase": "DONE",
+            "how": {
+                "cost": args.get("cost", ""),
+                "milestones": {
+                    "M1": args.get("m1", ""),
+                    "M2": args.get("m2", ""),
+                    "M3": args.get("m3", ""),
+                    "M4": args.get("m4", "")
+                }
+            }
         }
         
     return {"messages": [response]}
