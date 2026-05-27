@@ -64,8 +64,9 @@
         </div>
         <div id="keyStatus" style="font-size: 12px; margin-top: -10px; margin-bottom: 15px;"></div>
         
-        <div style="margin-top: 15px;">
-            <button onclick="newSession()" style="width: 100%; padding: 8px; background: #ea580c; color: white; border: none; border-radius: 4px; cursor: pointer;">+ 开启新对话</button>
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
+            <button onclick="newSession()" style="flex: 1; padding: 8px; background: #ea580c; color: white; border: none; border-radius: 4px; cursor: pointer;">+ 开启新对话</button>
+            <button onclick="shareSession()" style="padding: 8px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;" title="复制链接分享给同事">🔗 分享</button>
         </div>
 
         <div style="margin-top: 20px; font-size: 12px; background: #27272a; padding: 10px; border-radius: 4px;">
@@ -122,15 +123,39 @@
     </div>
 
     <script>
-        // 1. Session ID 与 API Key 的 LocalStorage 管理
+        // 1. 解析 URL 参数，看看是否是通过分享链接进来的
+        const urlParams = new URLSearchParams(window.location.search);
+        const sharedSessionId = urlParams.get('session_id');
+
         let sessions = JSON.parse(localStorage.getItem("sessions") || "[]");
         let sessionId = localStorage.getItem("session_id");
 
-        if (!sessionId) {
+        if (sharedSessionId) {
+            // 如果是通过分享链接进来的，强制切换到分享的 Session
+            sessionId = sharedSessionId;
+            localStorage.setItem("session_id", sessionId);
+            // 如果本地历史列表里没有这个会话，则默默加进去
+            if (!sessions.find(s => s.id === sessionId)) {
+                sessions.unshift({ id: sessionId, title: "🔗 共享会话" });
+                localStorage.setItem("sessions", JSON.stringify(sessions));
+            }
+            // 清理地址栏（保持美观）
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (!sessionId) {
             sessionId = "session_" + Math.random().toString(36).substr(2, 9);
             localStorage.setItem("session_id", sessionId);
-            sessions.unshift({ id: sessionId, time: new Date().toLocaleString() });
+            sessions.unshift({ id: sessionId, title: new Date().toLocaleString() });
             localStorage.setItem("sessions", JSON.stringify(sessions));
+        }
+
+        // 分享会话功能
+        function shareSession() {
+            const shareUrl = window.location.origin + window.location.pathname + "?session_id=" + sessionId;
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                alert("🎉 分享链接已复制到剪贴板！\n您可以把它发送给同事，他们打开后就能在自己的浏览器上看到这个会话的完整记录和 PDF 了！\n\n链接: " + shareUrl);
+            }).catch(err => {
+                alert("复制失败，请手动复制此链接分享：\n" + shareUrl);
+            });
         }
 
         const apiKeyInput = document.getElementById('apiKey');
