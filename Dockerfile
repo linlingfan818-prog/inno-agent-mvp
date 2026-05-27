@@ -8,8 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV TZ=Asia/Shanghai
 
-# 🌟 核心防御：针对企业内网代理/防火墙，强制关闭 APT 的 SSL 证书校验
-RUN echo "Acquire::https::Verify-Peer \"false\";" > /etc/apt/apt.conf.d/99-disable-cert-check && \
+# 🌟 核心防御：针对企业内网代理/防火墙，强行将 Debian 的官方源替换为国内清华源，绕过对国外域名的 401 鉴权拦截
+RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources || true && \
+    sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list || true && \
+    echo "Acquire::https::Verify-Peer \"false\";" > /etc/apt/apt.conf.d/99-disable-cert-check && \
     echo "Acquire::http::Verify-Peer \"false\";" >> /etc/apt/apt.conf.d/99-disable-cert-check
 
 # 🌟 核心防御：安装生成 PDF (xhtml2pdf / pycairo) 所需的底层 C++ 编译器和图形库依赖
