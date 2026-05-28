@@ -23,7 +23,7 @@ class TransitionToExpert(BaseModel):
     generate_value_report: bool = Field(description="用户是否选择生成商业价值报告PDF (若用户选择跳过则为False)")
 
 class TransitionToDone(BaseModel):
-    """当用户确认了最终的技术路线和落地方案(How)，并且同意生成最终PDF报告时调用此工具。"""
+    """当用户确认了最终的技术路线和落地方案(How)，并且同意结束讨论时调用此工具。"""
     project_name: str = Field(description="项目名称")
     how_overview: str = Field(description="技术方案概览")
     scope: str = Field(description="项目范围")
@@ -34,8 +34,20 @@ class TransitionToDone(BaseModel):
     m2: str = Field(description="里程碑2的核心任务")
     m3: str = Field(description="里程碑3的核心任务")
     m4: str = Field(description="里程碑4的核心任务")
-    pdf_instructions: str = Field(description="用户对生成技术报告的附加要求")
-    generate_technical_report: bool = Field(description="用户是否选择生成详细技术路径报告PDF (若用户选择无需报告只提报画布，则为False)")
+    pdf_instructions: str = Field(description="用户对生成技术报告的附加要求(如有)")
+    generate_technical_report: bool = Field(description="用户是否选择一并生成详细技术路径报告PDF (若用户选择无需报告只提报画布，则为False)")
+
+class TransitionToPhase(BaseModel):
+    """【时空穿梭工具】：当用户明确要求跳回或修改之前阶段的内容（例如：重新讨论痛点、重新定义产品）时，必须调用此工具跳转到指定阶段，不可在当前阶段强答。"""
+    target_phase: str = Field(description="目标阶段，必须是以下之一: COACH (痛点), PM (产品), VALUE (商业价值), EXPERT (技术实现)")
+
+class GenerateValueReport(BaseModel):
+    """【万能生成工具】：当用户在任何时候单独要求“重新生成”或“补充生成”【商业价值报告】时调用此工具。注意：必须满足前置条件(已有价值金额)才能成功。"""
+    additional_instructions: str = Field(description="用户补充的生成要求(如有)")
+
+class GenerateTechReport(BaseModel):
+    """【万能生成工具】：当用户在任何时候单独要求“重新生成”或“补充生成”【技术路径报告】时调用此工具。注意：必须满足前置条件(已有技术方案)才能成功。"""
+    additional_instructions: str = Field(description="用户补充的生成要求(如有)")
 
 # Helper to read prompts
 def get_sys_prompt(filename: str) -> str:
@@ -45,7 +57,54 @@ def get_sys_prompt(filename: str) -> str:
             return f.read()
     return f"【缺少提示词文件: {filename}】"
 
-# --- Phase Nodes ---
+async def handle_universal_tools(response, state: AgentState, config: RunnableConfig):
+    """处理全局通用的时空穿梭和文档生成工具"""
+    if not response.tool_calls:
+        return None
+        
+    tool_name = response.tool_calls[0]["name"]
+    tool_call_id = response.tool_calls[0]["id"]
+    args = response.tool_calls[0].get("args", {})
+    
+    if tool_name == "TransitionToPhase":
+        target = args.get("target_phase", "COACH").upper()
+        if target not in ["COACH", "PM", "VALUE", "EXPERT"]:
+            target = "COACH"
+        tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content=f"[系统回复] 时空穿梭成功。状态已退回至 {target} 阶段。请向用户打招呼并顺着他的话题重新探讨。原有数据已保留，无需重复收集用户未修改的部分。")
+        return {"messages": [response, tool_msg], "current_phase": target}
+        
+    elif tool_name == "GenerateValueReport":
+        if not state.get("value_amount"):
+            tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content="[系统回复] 拦截：无法生成商业报告。因为系统还没有收集到明确的商业价值预估(value_amount)。请先和用户探讨商业价值并引导用户确认金额。")
+            return {"messages": [response, tool_msg]}
+        try:
+            extra = args.get("additional_instructions", "")
+            prompt = "请基于我们之前的探讨，撰写一份非常详尽的《商业价值报告》(PDF适用)。\n"
+            prompt += f"其中必须明确提到用户刚刚确认的量化商业价值预估：{state.get('value_amount', '未知')}\n"
+            prompt += f"【用户的补充要求】：{extra}\n"
+            prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
+            result_msg = await _generate_pdf_and_upload(state, config, prompt, "商业价值报告")
+            tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content=f"[系统回复] 生成成功：\n{result_msg}\n请告知用户报告已生成。")
+        except Exception as e:
+            tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。")
+        return {"messages": [response, tool_msg]}
+        
+    elif tool_name == "GenerateTechReport":
+        if not state.get("how") or not state["how"].get("cost"):
+            tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content="[系统回复] 拦截：无法生成技术报告。因为系统还没有收集到技术里程碑(how)等核心信息。请向用户解释并引导其完成相关探讨。")
+            return {"messages": [response, tool_msg]}
+        try:
+            extra = args.get("additional_instructions", "")
+            prompt = "请基于我们之前的完整探讨，为您撰写一份极其详尽的《详细技术路径报告》(PDF适用)。\n"
+            prompt += f"【用户的补充要求】：{extra}\n"
+            prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
+            result_msg = await _generate_pdf_and_upload(state, config, prompt, "详细技术路径报告")
+            tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content=f"[系统回复] 生成成功：\n{result_msg}\n请告知用户报告已生成。")
+        except Exception as e:
+            tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。")
+        return {"messages": [response, tool_msg]}
+        
+    return None
 
 async def coach_node(state: AgentState, config: RunnableConfig):
     sys_content = get_sys_prompt("coach.md")
@@ -54,12 +113,13 @@ async def coach_node(state: AgentState, config: RunnableConfig):
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
     
-    llm_with_tools = llm.bind_tools([TransitionToPM])
+    llm_with_tools = llm.bind_tools([TransitionToPM, TransitionToPhase, GenerateValueReport, GenerateTechReport])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
     
-    # Check if the LLM decided to transition
+    uni_result = await handle_universal_tools(response, state, config)
+    if uni_result: return uni_result
+    
     if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToPM":
-        # Handle the transition
         tool_call_id = response.tool_calls[0]["id"]
         why_text = response.tool_calls[0].get("args", {}).get("why", "")
         tool_msg = ToolMessage(
@@ -82,8 +142,11 @@ async def pm_node(state: AgentState, config: RunnableConfig):
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
     
-    llm_with_tools = llm.bind_tools([TransitionToValue])
+    llm_with_tools = llm.bind_tools([TransitionToValue, TransitionToPhase, GenerateValueReport, GenerateTechReport])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
+    
+    uni_result = await handle_universal_tools(response, state, config)
+    if uni_result: return uni_result
     
     if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToValue":
         tool_call_id = response.tool_calls[0]["id"]
@@ -108,8 +171,11 @@ async def value_node(state: AgentState, config: RunnableConfig):
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
     
-    llm_with_tools = llm.bind_tools([TransitionToExpert])
+    llm_with_tools = llm.bind_tools([TransitionToExpert, TransitionToPhase, GenerateValueReport, GenerateTechReport])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
+    
+    uni_result = await handle_universal_tools(response, state, config)
+    if uni_result: return uni_result
     
     if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToExpert":
         tool_call_id = response.tool_calls[0]["id"]
@@ -118,13 +184,21 @@ async def value_node(state: AgentState, config: RunnableConfig):
         value_amount_text = args.get("value_amount", "")
         generate_report = args.get("generate_value_report", False)
         
-        # 如果需要生成商业价值报告，我们先在系统消息里打个招呼
+        reply_text = "[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。请向用户打招呼并开始探讨技术和成本 (How)。"
+        
+        # 实时生成报告逻辑
         if generate_report:
-            reply_text = "[系统回复] 已确认价值。用户选择了生成《商业价值报告》。请输出一条简短的消息告知用户正在为您奋笔疾书撰写报告...，流程图将自动流转去生成PDF并随后进入 EXPERT 阶段。"
-            next_phase = "VALUE_REPORT"
-        else:
-            reply_text = "[系统回复] 已确认价值。用户跳过了报告生成。请向用户打招呼并开始探讨技术和成本 (How)。"
-            next_phase = "EXPERT"
+            try:
+                # Mock state update logic just for generating report instantly
+                temp_state = dict(state)
+                temp_state["value_amount"] = value_amount_text
+                prompt = "请基于我们之前的探讨，撰写一份非常详尽的《商业价值报告》(PDF适用)。\n"
+                prompt += f"其中必须明确提到用户刚刚确认的量化商业价值预估：{value_amount_text}\n"
+                prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
+                result_msg = await _generate_pdf_and_upload(temp_state, config, prompt, "商业价值报告")
+                reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。同时，商业报告生成成功：\n{result_msg}\n请一并告知用户并打招呼探讨技术。"
+            except Exception as e:
+                reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。但商业报告生成失败：{str(e)}\n请告知用户。"
             
         tool_msg = ToolMessage(
             tool_call_id=tool_call_id,
@@ -133,7 +207,7 @@ async def value_node(state: AgentState, config: RunnableConfig):
         )
         return {
             "messages": [response, tool_msg],
-            "current_phase": next_phase,
+            "current_phase": "EXPERT",
             "market_value": market_value_text,
             "value_amount": value_amount_text,
             "generate_value_report": generate_report
@@ -148,18 +222,46 @@ async def expert_node(state: AgentState, config: RunnableConfig):
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
     
-    llm_with_tools = llm.bind_tools([TransitionToDone])
+    llm_with_tools = llm.bind_tools([TransitionToDone, TransitionToPhase, GenerateValueReport, GenerateTechReport])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
+    
+    uni_result = await handle_universal_tools(response, state, config)
+    if uni_result: return uni_result
     
     if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToDone":
         tool_call_id = response.tool_calls[0]["id"]
         args = response.tool_calls[0].get("args", {})
         generate_report = args.get("generate_technical_report", False)
         
+        reply_text = "[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。用户选择了无需报告。流程结束。"
+        
+        temp_how = {
+            "project_name": args.get("project_name", ""),
+            "how_overview": args.get("how_overview", ""),
+            "scope": args.get("scope", ""),
+            "objective": args.get("objective", ""),
+            "key_results": args.get("key_results", ""),
+            "cost": args.get("cost", ""),
+            "milestones": {
+                "M1": args.get("m1", ""),
+                "M2": args.get("m2", ""),
+                "M3": args.get("m3", ""),
+                "M4": args.get("m4", "")
+            }
+        }
+        
         if generate_report:
-            reply_text = "[系统回复] 已成功确认技术方案。用户选择了生成报告。请简短回复正在生成中..."
-        else:
-            reply_text = "[系统回复] 已成功确认技术方案。用户选择了无需报告。流程结束。"
+            try:
+                temp_state = dict(state)
+                temp_state["how"] = temp_how
+                pdf_instructions = args.get("pdf_instructions", "")
+                prompt = "请基于我们之前的完整探讨，为您撰写一份极其详尽的《详细技术路径报告》(PDF适用)。\n"
+                if pdf_instructions: prompt += f"【用户特别嘱咐】：{pdf_instructions}\n"
+                prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
+                result_msg = await _generate_pdf_and_upload(temp_state, config, prompt, "详细技术路径报告")
+                reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。技术报告生成成功：\n{result_msg}\n请告知用户。"
+            except Exception as e:
+                reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。但技术报告生成失败：{str(e)}\n请告知用户。"
             
         tool_msg = ToolMessage(
             tool_call_id=tool_call_id,
@@ -168,23 +270,10 @@ async def expert_node(state: AgentState, config: RunnableConfig):
         )
         return {
             "messages": [response, tool_msg],
-            "current_phase": "DONE",
+            "current_phase": "FINISHED",
             "generate_tech_report": generate_report,
             "pdf_instructions": args.get("pdf_instructions", ""),
-            "how": {
-                "project_name": args.get("project_name", ""),
-                "how_overview": args.get("how_overview", ""),
-                "scope": args.get("scope", ""),
-                "objective": args.get("objective", ""),
-                "key_results": args.get("key_results", ""),
-                "cost": args.get("cost", ""),
-                "milestones": {
-                    "M1": args.get("m1", ""),
-                    "M2": args.get("m2", ""),
-                    "M3": args.get("m3", ""),
-                    "M4": args.get("m4", "")
-                }
-            }
+            "how": temp_how
         }
         
     return {"messages": [response]}
@@ -216,18 +305,18 @@ async def _generate_pdf_and_upload(state: AgentState, config: RunnableConfig, pr
     <meta charset="utf-8">
     <style>
         @font-face {{
-            font-family: 'SimHei';
+            font-family: SimHei;
             src: url('{font_path}');
         }}
         @page {{ size: a4 portrait; margin: 2cm; }}
-        body {{ font-family: "SimHei", sans-serif; font-size: 14px; line-height: 1.6; color: #333; }}
-        h1 {{ color: #1e3a8a; text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; font-family: "SimHei"; }}
-        h2 {{ color: #2563eb; margin-top: 20px; font-family: "SimHei"; }}
-        h3 {{ color: #3b82f6; font-family: "SimHei"; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; font-family: "SimHei"; }}
+        body {{ font-family: SimHei; font-size: 14px; line-height: 1.6; color: #333; }}
+        h1 {{ color: #1e3a8a; text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; font-family: SimHei; }}
+        h2 {{ color: #2563eb; margin-top: 20px; font-family: SimHei; }}
+        h3 {{ color: #3b82f6; font-family: SimHei; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; font-family: SimHei; }}
         th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
         th {{ background-color: #f3f4f6; }}
-        code {{ background-color: #f1f5f9; padding: 2px 4px; border-radius: 4px; font-family: monospace; }}
+        code {{ background-color: #f1f5f9; padding: 2px 4px; border-radius: 4px; font-family: SimHei; }}
     </style>
     </head>
     <body>
@@ -291,54 +380,8 @@ async def _generate_pdf_and_upload(state: AgentState, config: RunnableConfig, pr
     else:
         upload_status = "ℹ️ 未配置 EXTERNAL_API_KEY，跳过自动同步步骤。"
 
-    return f"📄 **[点击此处下载《{report_type_name}》 PDF 版]({download_url})**\n\n{upload_status}"
+    return f"📄 《{report_type_name}》已生成完毕。\n\n{upload_status}\n\n👉 请您前往您的专属数据后台系统查看或下载该报告。\n\n*(测试环境临时预览通道)：***[点击此处直接下载PDF进行乱码测试]({download_url})**"
 
-async def value_report_node(state: AgentState, config: RunnableConfig):
-    try:
-        prompt = "请基于我们之前的探讨，撰写一份非常详尽的《商业价值报告》(PDF适用)。\n"
-        prompt += f"其中必须明确提到用户刚刚确认的量化商业价值预估：{state.get('value_amount', '未知')}\n"
-        prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。请充分发散，将之前零散的对话梳理成极具专业性和感染力的万字商业报告级别长文。"
-        
-        result_msg = await _generate_pdf_and_upload(state, config, prompt, "商业价值报告")
-        success_msg = f"🎉 商业价值报告已生成完成！\n\n{result_msg}\n\n接下来，我们将自动进入技术与成本评估环节 (EXPERT 阶段)。"
-        return {
-            "messages": [AIMessage(content=success_msg)],
-            "current_phase": "EXPERT"
-        }
-    except Exception as e:
-        err_msg = f"抱歉，商业报告生成过程中出现了错误: {str(e)}\n\n由于失败，我们将跳过此报告直接进入下一步 (EXPERT)。"
-        return {
-            "messages": [AIMessage(content=err_msg)],
-            "current_phase": "EXPERT"
-        }
-
-async def report_node(state: AgentState, config: RunnableConfig):
-    generate_tech_report = state.get("generate_tech_report", False)
-    if not generate_tech_report:
-        # 用户选择了不生成详细报告，流程结束，把最终的完整数据流推向画布即可
-        return {
-            "messages": [AIMessage(content="🎉 已确认技术方案。根据您的选择，已跳过生成长篇详细技术报告。\n\n目前所有结构化核心字段均已提取完成并同步至您的创新画布中，您可以随时在平台进行下一步的投递或导出。")],
-            "current_phase": "FINISHED"
-        }
-
-    try:
-        # 用户选择生成详细技术报告
-        pdf_instructions = state.get("pdf_instructions", "")
-        prompt = "请基于我们之前的完整探讨，为您撰写一份极其详尽的《详细技术路径报告》(PDF适用)。\n"
-        prompt += "【极度重要】：此报告是为了作为“补充详情辅助材料”，请不要仅仅局限于画布的那 8 个干瘪的字段！你必须极度发散、扩写、深挖细节！写得越完整、详尽越好，必须是一份专业的“技术立项万字长文”。\n"
-        if pdf_instructions:
-            prompt += f"\n【用户特别嘱咐】：{pdf_instructions}\n"
-        prompt += "\n报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
-        
-        result_msg = await _generate_pdf_and_upload(state, config, prompt, "详细技术路径报告")
-        success_msg = f"🎉 技术报告已生成完成！\n\n{result_msg}\n\n目前所有结构化核心字段均已提取完成并同步至您的创新画布中，您可以随时在平台进行下一步的投递或导出。"
-        
-        return {
-            "messages": [AIMessage(content=success_msg)],
-            "current_phase": "FINISHED"
-        }
-    except Exception as e:
-        err_msg = f"抱歉，技术报告生成过程中出现了错误: {str(e)}\n\n您可以稍后尝试重试。"
-        return {"messages": [AIMessage(content=err_msg)]}
+# 删除了废弃的 value_report_node 和 report_node 节点
 
 
