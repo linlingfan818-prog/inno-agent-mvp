@@ -78,7 +78,7 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
             prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
             result_msg = await _generate_markdown_and_upload(state, config, prompt, "商业价值报告")
-            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成成功：\n{result_msg}\n请告知用户报告已生成。"), {}
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成成功：\n{result_msg}\n【系统强制指令】：由于文件已经生成并保存，你在接下来的回复中【绝对不可以】将报告的正文内容输出到聊天框中！你只能向用户简短播报“报告已生成完毕”并引导其点击链接下载。"), {}
         except Exception as e:
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
 
@@ -91,7 +91,7 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
             prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
             result_msg = await _generate_markdown_and_upload(state, config, prompt, "技术路径报告")
-            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成成功：\n{result_msg}\n请告知用户报告已生成。"), {}
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成成功：\n{result_msg}\n【系统强制指令】：由于文件已经生成并保存，你在接下来的回复中【绝对不可以】将报告的正文内容输出到聊天框中！你只能向用户简短播报“报告已生成完毕”并引导其点击链接下载。"), {}
         except Exception as e:
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
 
@@ -117,7 +117,7 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
                 prompt += f"其中必须明确提到用户刚刚确认的量化商业价值预估：{value_amount_text}\n"
                 prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
                 result_msg = await _generate_markdown_and_upload(temp_state, config, prompt, "商业价值报告")
-                reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。同时，商业报告生成成功：\n{result_msg}\n请一并告知用户并打招呼探讨技术。"
+                reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。同时，商业报告生成成功：\n{result_msg}\n【系统强制指令】：你在接下来的回复中【绝对不可以】输出报告正文，只需简短播报生成成功并给出链接，然后直接打招呼探讨技术。"
             except Exception as e:
                 reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。但商业报告生成失败：{str(e)}\n请告知用户。"
         return ToolMessage(tool_call_id=t_id, name=t_name, content=reply_text), {
@@ -147,7 +147,7 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
                 if pdf_instructions: prompt += f"【用户特别嘱咐】：{pdf_instructions}\n"
                 prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
                 result_msg = await _generate_markdown_and_upload(temp_state, config, prompt, "技术路径报告")
-                reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。技术报告生成成功：\n{result_msg}\n请告知用户。"
+                reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。技术报告生成成功：\n{result_msg}\n【系统强制指令】：你在接下来的回复中【绝对不可以】输出报告正文，只需简短播报生成成功并给出链接，然后告知已结项。"
             except Exception as e:
                 reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。但技术报告生成失败：{str(e)}\n请告知用户。"
         return ToolMessage(tool_call_id=t_id, name=t_name, content=reply_text), {
@@ -271,7 +271,8 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
 【强制格式要求】
 1. 必须且只能输出 Markdown 正文，绝对不能包含任何聊天寒暄语（如“好的”、“没问题”、“这就为您生成”等）。
 2. 直接以 `# ` 标题开始输出。
-3. {prompt}
+3. 结尾请以 `— 报告完 —` 结束，**绝对不要**在报告末尾包含任何对话选项、提问或类似“[选项A]”的内容。
+4. {prompt}
 
 【历史讨论记录】
 {conversation_text}
