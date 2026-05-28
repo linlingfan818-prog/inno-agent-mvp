@@ -244,7 +244,8 @@ async def expert_node(state: AgentState, config: RunnableConfig):
         
     return {"messages": [response]}
 
-from langchain_core.messages import AIMessage
+import urllib.parse
+from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
 import uuid
 import re
 import httpx
@@ -255,11 +256,14 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
     llm = initialize_llm(custom_api_key=api_key)
     
     # 1. 运行大模型生成 Markdown
-    sys_msg = SystemMessage(content=prompt)
-    result = await llm.ainvoke([sys_msg] + state["messages"])
+    # ⚠️关键修复：不能把指令放在 SystemMessage 里，否则大模型会优先回复历史记录里的最后一条用户消息（导致只会说“好的稍等”）。
+    # 必须把生成报告的指令作为最后一条 HumanMessage 强制它输出正文。
+    instruction = HumanMessage(content=f"【系统强制指令】：请严格根据以上的对话记录，直接输出《{report_type_name}》的完整正文内容。不要输出任何寒暄语（如“好的”、“请稍等”）。\n\n具体要求如下：\n{prompt}")
+    
+    result = await llm.ainvoke(state["messages"] + [instruction])
     md_text = result.content
     
-    if not md_text or not md_text.strip():
+    if not md_text or not md_text.strip() or "稍候" in md_text or "稍等" in md_text:
         raise Exception("大模型生成了空内容，生成失败。")
         
     # 2. 提取项目名称并清理非法字符以用作文件名
@@ -291,7 +295,9 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
     with open(file_path, "w", encoding="utf-8") as result_file:
         result_file.write(md_text)
         
-    download_url = f"/static/reports/{file_name}"
+    # 修复中文文件名在浏览器下载时乱码的问题 (URL Encode)
+    encoded_file_name = urllib.parse.quote(file_name)
+    download_url = f"/static/reports/{encoded_file_name}"
     
     # 4. 上传到外部数据后台
     username = config.get("configurable", {}).get("username", "anonymous")
