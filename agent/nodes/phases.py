@@ -256,14 +256,34 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
     llm = initialize_llm(custom_api_key=api_key)
     
     # 1. 运行大模型生成 Markdown
-    # ⚠️关键修复：不能把指令放在 SystemMessage 里，否则大模型会优先回复历史记录里的最后一条用户消息（导致只会说“好的稍等”）。
-    # 必须把生成报告的指令作为最后一条 HumanMessage 强制它输出正文。
-    instruction = HumanMessage(content=f"【系统强制指令】：请严格根据以上的对话记录，直接输出《{report_type_name}》的完整正文内容。不要输出任何寒暄语（如“好的”、“请稍等”）。\n\n具体要求如下：\n{prompt}")
+    # ⚠️关键修复：为了彻底避免大模型在聊天上下文中产生“寒暄”或因为多轮对话格式要求导致 VertexAI 报错，
+    # 我们将所有的历史记录提取为纯文本，放到一个全新的、无历史包袱的单轮 Prompt 中强制生成。
+    conversation_text = ""
+    for msg in state["messages"]:
+        if isinstance(msg.content, str) and msg.content.strip():
+            role = "AI" if msg.type == "ai" else "用户" if msg.type == "human" else "系统"
+            conversation_text += f"[{role}]: {msg.content}\n"
+            
+    final_prompt = f"""
+【任务目标】
+请你作为一个专业的报告撰写专家，根据以下提供的全部项目讨论记录，撰写一份正式的《{report_type_name}》。
+
+【强制格式要求】
+1. 必须且只能输出 Markdown 正文，绝对不能包含任何聊天寒暄语（如“好的”、“没问题”、“这就为您生成”等）。
+2. 直接以 `# ` 标题开始输出。
+3. {prompt}
+
+【历史讨论记录】
+{conversation_text}
+"""
     
-    result = await llm.ainvoke(state["messages"] + [instruction])
+    sys_msg = SystemMessage(content="你是一个无情的专业报告生成机器，只输出报告正文，绝不说废话。")
+    user_msg = HumanMessage(content=final_prompt)
+    
+    result = await llm.ainvoke([sys_msg, user_msg])
     md_text = result.content
     
-    if not md_text or not md_text.strip() or "稍候" in md_text or "稍等" in md_text:
+    if not md_text or not md_text.strip() or "好的" in md_text[:20] or "稍候" in md_text or "稍等" in md_text:
         raise Exception("大模型生成了空内容，生成失败。")
         
     # 2. 提取项目名称并清理非法字符以用作文件名
