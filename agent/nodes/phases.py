@@ -73,11 +73,11 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
             return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成商业报告。因为系统还没有收集到明确的商业价值预估(value_amount)。请先和用户探讨商业价值并引导用户确认金额。"), {}
         try:
             extra = args.get("additional_instructions", "")
-            prompt = "请基于我们之前的探讨，撰写一份非常详尽的《商业价值报告》(PDF适用)。\n"
+            prompt = "请基于我们之前的探讨，撰写一份非常详尽的《商业价值报告》(Markdown格式)。\n"
             prompt += f"其中必须明确提到用户刚刚确认的量化商业价值预估：{state.get('value_amount', '未知')}\n"
             prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
-            result_msg = await _generate_pdf_and_upload(state, config, prompt, "商业价值报告")
+            result_msg = await _generate_markdown_and_upload(state, config, prompt, "商业价值报告")
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成成功：\n{result_msg}\n请告知用户报告已生成。"), {}
         except Exception as e:
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
@@ -87,10 +87,10 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
             return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成技术报告。因为系统还没有收集到技术里程碑(how)等核心信息。请向用户解释并引导其完成相关探讨。"), {}
         try:
             extra = args.get("additional_instructions", "")
-            prompt = "请基于我们之前的完整探讨，为您撰写一份极其详尽的《详细技术路径报告》(PDF适用)。\n"
+            prompt = "请基于我们之前的完整探讨，为您撰写一份极其详尽的《详细技术路径报告》(Markdown格式)。\n"
             prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
-            result_msg = await _generate_pdf_and_upload(state, config, prompt, "详细技术路径报告")
+            result_msg = await _generate_markdown_and_upload(state, config, prompt, "技术路径报告")
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成成功：\n{result_msg}\n请告知用户报告已生成。"), {}
         except Exception as e:
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
@@ -113,10 +113,10 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
             try:
                 temp_state = dict(state)
                 temp_state["value_amount"] = value_amount_text
-                prompt = "请基于我们之前的探讨，撰写一份非常详尽的《商业价值报告》(PDF适用)。\n"
+                prompt = "请基于我们之前的探讨，撰写一份非常详尽的《商业价值报告》(Markdown格式)。\n"
                 prompt += f"其中必须明确提到用户刚刚确认的量化商业价值预估：{value_amount_text}\n"
                 prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
-                result_msg = await _generate_pdf_and_upload(temp_state, config, prompt, "商业价值报告")
+                result_msg = await _generate_markdown_and_upload(temp_state, config, prompt, "商业价值报告")
                 reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。同时，商业报告生成成功：\n{result_msg}\n请一并告知用户并打招呼探讨技术。"
             except Exception as e:
                 reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。但商业报告生成失败：{str(e)}\n请告知用户。"
@@ -143,10 +143,10 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
                 temp_state = dict(state)
                 temp_state["how"] = temp_how
                 pdf_instructions = args.get("pdf_instructions", "")
-                prompt = "请基于我们之前的完整探讨，为您撰写一份极其详尽的《详细技术路径报告》(PDF适用)。\n"
+                prompt = "请基于我们之前的完整探讨，为您撰写一份极其详尽的《详细技术路径报告》(Markdown格式)。\n"
                 if pdf_instructions: prompt += f"【用户特别嘱咐】：{pdf_instructions}\n"
                 prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
-                result_msg = await _generate_pdf_and_upload(temp_state, config, prompt, "详细技术路径报告")
+                result_msg = await _generate_markdown_and_upload(temp_state, config, prompt, "技术路径报告")
                 reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。技术报告生成成功：\n{result_msg}\n请告知用户。"
             except Exception as e:
                 reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。但技术报告生成失败：{str(e)}\n请告知用户。"
@@ -246,12 +246,11 @@ async def expert_node(state: AgentState, config: RunnableConfig):
 
 from langchain_core.messages import AIMessage
 import uuid
-import markdown
-from xhtml2pdf import pisa
+import re
 import httpx
 
-async def _generate_pdf_and_upload(state: AgentState, config: RunnableConfig, prompt: str, report_type_name: str) -> str:
-    """Helper function to generate PDF from prompt and upload it."""
+async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfig, prompt: str, report_type_name: str) -> str:
+    """Helper function to generate Markdown from prompt and upload it."""
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
     
@@ -260,59 +259,43 @@ async def _generate_pdf_and_upload(state: AgentState, config: RunnableConfig, pr
     result = await llm.ainvoke([sys_msg] + state["messages"])
     md_text = result.content
     
-    # 2. 转为 HTML
-    html_content = markdown.markdown(md_text, extensions=['tables', 'fenced_code'])
-    
-    # 3. 构建带中文字体的 HTML 骨架
-    font_path = os.path.join(os.getcwd(), "static", "fonts", "simhei.ttf").replace('\\', '/')
-    html_template = f"""
-    <html>
-    <head>
-    <meta charset="utf-8">
-    <style>
-        @font-face {{
-            font-family: SimHei;
-            src: url('{font_path}');
-        }}
-        @page {{ size: a4 portrait; margin: 2cm; }}
-        body {{ font-family: SimHei; font-size: 14px; line-height: 1.6; color: #333; }}
-        h1 {{ color: #1e3a8a; text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; font-family: SimHei; }}
-        h2 {{ color: #2563eb; margin-top: 20px; font-family: SimHei; }}
-        h3 {{ color: #3b82f6; font-family: SimHei; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; font-family: SimHei; }}
-        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-        th {{ background-color: #f3f4f6; }}
-        code {{ background-color: #f1f5f9; padding: 2px 4px; border-radius: 4px; font-family: SimHei; }}
-    </style>
-    </head>
-    <body>
-    {html_content}
-    </body>
-    </html>
-    """
-    
-    # 4. 生成 PDF
+    if not md_text or not md_text.strip():
+        raise Exception("大模型生成了空内容，生成失败。")
+        
+    # 2. 提取项目名称并清理非法字符以用作文件名
+    project_name_raw = state.get("how", {}).get("project_name", "")
+    if not project_name_raw:
+        # 兜底：如果 how 阶段还没走到，用 what，或者直接叫创新项目
+        project_name_raw = state.get("what", "创新项目")
+        # 如果太长，截断一下
+        if len(project_name_raw) > 20:
+            project_name_raw = project_name_raw[:20]
+            
+    # 清理 Windows 非法字符
+    clean_project_name = re.sub(r'[\\/*?:"<>|]', "", project_name_raw).strip()
+    if not clean_project_name:
+        clean_project_name = "未命名项目"
+        
     report_id = str(uuid.uuid4())[:8]
     reports_dir = os.path.join(os.getcwd(), "static", "reports")
     os.makedirs(reports_dir, exist_ok=True)
     
-    file_name = f"{report_type_name}_{report_id}.pdf"
+    # 如果文件名冲突，加个随机 ID
+    file_name = f"{clean_project_name}_{report_type_name}.md"
     file_path = os.path.join(reports_dir, file_name)
+    if os.path.exists(file_path):
+        file_name = f"{clean_project_name}_{report_type_name}_{report_id}.md"
+        file_path = os.path.join(reports_dir, file_name)
     
-    with open(file_path, "w+b") as result_file:
-        pisa_status = pisa.CreatePDF(html_template.encode('utf-8'), dest=result_file)
-        
-    if pisa_status.err:
-        raise Exception(f"PDF Generation Error by xhtml2pdf for {report_type_name}")
+    # 3. 写入 Markdown 文件
+    with open(file_path, "w", encoding="utf-8") as result_file:
+        result_file.write(md_text)
         
     download_url = f"/static/reports/{file_name}"
     
-    # 5. 上传到外部数据后台
+    # 4. 上传到外部数据后台
     username = config.get("configurable", {}).get("username", "anonymous")
     session_id = config.get("configurable", {}).get("thread_id", "unknown_session")
-    
-    # 如果阶段不同，可能还没产生 project_name，可以 fallback 取 title 或默认名字
-    project_name = state.get("how", {}).get("project_name", f"创新项目_{report_id}")
     
     api_base = os.environ.get("DATA_API_BASE_URL", "http://localhost:8080")
     external_api_key = os.environ.get("EXTERNAL_API_KEY", "")
@@ -322,10 +305,10 @@ async def _generate_pdf_and_upload(state: AgentState, config: RunnableConfig, pr
         try:
             async with httpx.AsyncClient() as client:
                 with open(file_path, "rb") as f:
-                    files = {'file': (file_name, f, 'application/pdf')}
+                    files = {'file': (file_name, f, 'text/markdown')}
                     data = {
                         'conversationId': session_id,
-                        'title': project_name,
+                        'title': clean_project_name,
                         'username': username
                     }
                     headers = {"X-API-Key": external_api_key}
@@ -346,8 +329,4 @@ async def _generate_pdf_and_upload(state: AgentState, config: RunnableConfig, pr
     else:
         upload_status = "ℹ️ 未配置 EXTERNAL_API_KEY，跳过自动同步步骤。"
 
-    return f"📄 《{report_type_name}》已生成完毕。\n\n{upload_status}\n\n👉 请您前往您的专属数据后台系统查看或下载该报告。\n\n*(测试环境临时预览通道)：***[点击此处直接下载PDF进行乱码测试]({download_url})**"
-
-# 删除了废弃的 value_report_node 和 report_node 节点
-
-
+    return f"📄 《{report_type_name}》已生成完毕。\n\n{upload_status}\n\n👉 请您前往您的专属数据后台系统查看或下载该报告。\n\n*(测试环境临时预览通道)：***[点击此处直接查看/下载报告]({download_url})**"
