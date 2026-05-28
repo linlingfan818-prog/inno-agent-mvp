@@ -57,26 +57,20 @@ def get_sys_prompt(filename: str) -> str:
             return f.read()
     return f"【缺少提示词文件: {filename}】"
 
-async def handle_universal_tools(response, state: AgentState, config: RunnableConfig):
-    """处理全局通用的时空穿梭和文档生成工具"""
-    if not response.tool_calls:
-        return None
-        
-    tool_name = response.tool_calls[0]["name"]
-    tool_call_id = response.tool_calls[0]["id"]
-    args = response.tool_calls[0].get("args", {})
+async def process_single_tool(tc, state: AgentState, config: RunnableConfig, current_phase: str):
+    """处理单个工具调用，返回 (ToolMessage, state_updates)"""
+    t_name = tc["name"]
+    t_id = tc["id"]
+    args = tc.get("args", {})
     
-    if tool_name == "TransitionToPhase":
+    if t_name == "TransitionToPhase":
         target = args.get("target_phase", "COACH").upper()
-        if target not in ["COACH", "PM", "VALUE", "EXPERT"]:
-            target = "COACH"
-        tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content=f"[系统回复] 时空穿梭成功。状态已退回至 {target} 阶段。请向用户打招呼并顺着他的话题重新探讨。原有数据已保留，无需重复收集用户未修改的部分。")
-        return {"messages": [response, tool_msg], "current_phase": target}
+        if target not in ["COACH", "PM", "VALUE", "EXPERT"]: target = "COACH"
+        return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 时空穿梭成功。状态已退回至 {target} 阶段。请向用户打招呼并顺着他的话题重新探讨。原有数据已保留，无需重复收集用户未修改的部分。"), {"current_phase": target}
         
-    elif tool_name == "GenerateValueReport":
+    elif t_name == "GenerateValueReport":
         if not state.get("value_amount"):
-            tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content="[系统回复] 拦截：无法生成商业报告。因为系统还没有收集到明确的商业价值预估(value_amount)。请先和用户探讨商业价值并引导用户确认金额。")
-            return {"messages": [response, tool_msg]}
+            return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成商业报告。因为系统还没有收集到明确的商业价值预估(value_amount)。请先和用户探讨商业价值并引导用户确认金额。"), {}
         try:
             extra = args.get("additional_instructions", "")
             prompt = "请基于我们之前的探讨，撰写一份非常详尽的《商业价值报告》(PDF适用)。\n"
@@ -84,27 +78,85 @@ async def handle_universal_tools(response, state: AgentState, config: RunnableCo
             prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
             result_msg = await _generate_pdf_and_upload(state, config, prompt, "商业价值报告")
-            tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content=f"[系统回复] 生成成功：\n{result_msg}\n请告知用户报告已生成。")
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成成功：\n{result_msg}\n请告知用户报告已生成。"), {}
         except Exception as e:
-            tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。")
-        return {"messages": [response, tool_msg]}
-        
-    elif tool_name == "GenerateTechReport":
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
+
+    elif t_name == "GenerateTechReport":
         if not state.get("how") or not state["how"].get("cost"):
-            tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content="[系统回复] 拦截：无法生成技术报告。因为系统还没有收集到技术里程碑(how)等核心信息。请向用户解释并引导其完成相关探讨。")
-            return {"messages": [response, tool_msg]}
+            return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成技术报告。因为系统还没有收集到技术里程碑(how)等核心信息。请向用户解释并引导其完成相关探讨。"), {}
         try:
             extra = args.get("additional_instructions", "")
             prompt = "请基于我们之前的完整探讨，为您撰写一份极其详尽的《详细技术路径报告》(PDF适用)。\n"
             prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
             result_msg = await _generate_pdf_and_upload(state, config, prompt, "详细技术路径报告")
-            tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content=f"[系统回复] 生成成功：\n{result_msg}\n请告知用户报告已生成。")
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成成功：\n{result_msg}\n请告知用户报告已生成。"), {}
         except Exception as e:
-            tool_msg = ToolMessage(tool_call_id=tool_call_id, name=tool_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。")
-        return {"messages": [response, tool_msg]}
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
+
+    # Node specific handling
+    if current_phase == "COACH" and t_name == "TransitionToPM":
+        why_text = args.get("why", "")
+        return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 已成功切换至 PM 阶段。请向用户打招呼并开始探讨产品细节 (What)。"), {"current_phase": "PM", "why": why_text}
         
-    return None
+    elif current_phase == "PM" and t_name == "TransitionToValue":
+        what_text = args.get("what", "")
+        return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 已成功切换至 VALUE 阶段。请向用户打招呼并开始探讨市场价值与商业潜力。"), {"current_phase": "VALUE", "what": what_text}
+        
+    elif current_phase == "VALUE" and t_name == "TransitionToExpert":
+        market_value_text = args.get("market_value", "")
+        value_amount_text = args.get("value_amount", "")
+        generate_report = args.get("generate_value_report", False)
+        reply_text = "[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。请向用户打招呼并开始探讨技术和成本 (How)。"
+        if generate_report:
+            try:
+                temp_state = dict(state)
+                temp_state["value_amount"] = value_amount_text
+                prompt = "请基于我们之前的探讨，撰写一份非常详尽的《商业价值报告》(PDF适用)。\n"
+                prompt += f"其中必须明确提到用户刚刚确认的量化商业价值预估：{value_amount_text}\n"
+                prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
+                result_msg = await _generate_pdf_and_upload(temp_state, config, prompt, "商业价值报告")
+                reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。同时，商业报告生成成功：\n{result_msg}\n请一并告知用户并打招呼探讨技术。"
+            except Exception as e:
+                reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。但商业报告生成失败：{str(e)}\n请告知用户。"
+        return ToolMessage(tool_call_id=t_id, name=t_name, content=reply_text), {
+            "current_phase": "EXPERT", "market_value": market_value_text, "value_amount": value_amount_text, "generate_value_report": generate_report
+        }
+        
+    elif (current_phase == "EXPERT" or current_phase == "FINISHED") and t_name == "TransitionToDone":
+        generate_report = args.get("generate_technical_report", False)
+        reply_text = "[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。用户选择了无需报告。流程结束。"
+        temp_how = {
+            "project_name": args.get("project_name", ""),
+            "how_overview": args.get("how_overview", ""),
+            "scope": args.get("scope", ""),
+            "objective": args.get("objective", ""),
+            "key_results": args.get("key_results", ""),
+            "cost": args.get("cost", ""),
+            "milestones": {
+                "M1": args.get("m1", ""), "M2": args.get("m2", ""), "M3": args.get("m3", ""), "M4": args.get("m4", "")
+            }
+        }
+        if generate_report:
+            try:
+                temp_state = dict(state)
+                temp_state["how"] = temp_how
+                pdf_instructions = args.get("pdf_instructions", "")
+                prompt = "请基于我们之前的完整探讨，为您撰写一份极其详尽的《详细技术路径报告》(PDF适用)。\n"
+                if pdf_instructions: prompt += f"【用户特别嘱咐】：{pdf_instructions}\n"
+                prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
+                result_msg = await _generate_pdf_and_upload(temp_state, config, prompt, "详细技术路径报告")
+                reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。技术报告生成成功：\n{result_msg}\n请告知用户。"
+            except Exception as e:
+                reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。但技术报告生成失败：{str(e)}\n请告知用户。"
+        return ToolMessage(tool_call_id=t_id, name=t_name, content=reply_text), {
+            "current_phase": "FINISHED", "generate_tech_report": generate_report, "pdf_instructions": args.get("pdf_instructions", ""), "how": temp_how
+        }
+        
+    # Unhandled tool fallback
+    return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 错误：无法在当前阶段({current_phase})调用工具 {t_name}，或者参数错误。请勿再尝试调用此工具，直接回复用户。"), {}
+
 
 async def coach_node(state: AgentState, config: RunnableConfig):
     sys_content = get_sys_prompt("coach.md")
@@ -116,22 +168,14 @@ async def coach_node(state: AgentState, config: RunnableConfig):
     llm_with_tools = llm.bind_tools([TransitionToPM, TransitionToPhase, GenerateValueReport, GenerateTechReport])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
     
-    uni_result = await handle_universal_tools(response, state, config)
-    if uni_result: return uni_result
-    
-    if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToPM":
-        tool_call_id = response.tool_calls[0]["id"]
-        why_text = response.tool_calls[0].get("args", {}).get("why", "")
-        tool_msg = ToolMessage(
-            tool_call_id=tool_call_id,
-            name="TransitionToPM",
-            content="[系统回复] 已成功切换至 PM 阶段。请向用户打招呼并开始探讨产品细节 (What)。"
-        )
-        return {
-            "messages": [response, tool_msg],
-            "current_phase": "PM",
-            "why": why_text
-        }
+    if response.tool_calls:
+        tool_messages = []
+        state_updates = {}
+        for tc in response.tool_calls:
+            msg, updates = await process_single_tool(tc, state, config, "COACH")
+            tool_messages.append(msg)
+            state_updates.update(updates)
+        return {"messages": [response] + tool_messages, **state_updates}
         
     return {"messages": [response]}
 
@@ -145,22 +189,14 @@ async def pm_node(state: AgentState, config: RunnableConfig):
     llm_with_tools = llm.bind_tools([TransitionToValue, TransitionToPhase, GenerateValueReport, GenerateTechReport])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
     
-    uni_result = await handle_universal_tools(response, state, config)
-    if uni_result: return uni_result
-    
-    if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToValue":
-        tool_call_id = response.tool_calls[0]["id"]
-        what_text = response.tool_calls[0].get("args", {}).get("what", "")
-        tool_msg = ToolMessage(
-            tool_call_id=tool_call_id,
-            name="TransitionToValue",
-            content="[系统回复] 已成功切换至 VALUE 阶段。请向用户打招呼并开始探讨市场价值与商业潜力。"
-        )
-        return {
-            "messages": [response, tool_msg],
-            "current_phase": "VALUE",
-            "what": what_text
-        }
+    if response.tool_calls:
+        tool_messages = []
+        state_updates = {}
+        for tc in response.tool_calls:
+            msg, updates = await process_single_tool(tc, state, config, "PM")
+            tool_messages.append(msg)
+            state_updates.update(updates)
+        return {"messages": [response] + tool_messages, **state_updates}
         
     return {"messages": [response]}
 
@@ -174,44 +210,14 @@ async def value_node(state: AgentState, config: RunnableConfig):
     llm_with_tools = llm.bind_tools([TransitionToExpert, TransitionToPhase, GenerateValueReport, GenerateTechReport])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
     
-    uni_result = await handle_universal_tools(response, state, config)
-    if uni_result: return uni_result
-    
-    if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToExpert":
-        tool_call_id = response.tool_calls[0]["id"]
-        args = response.tool_calls[0].get("args", {})
-        market_value_text = args.get("market_value", "")
-        value_amount_text = args.get("value_amount", "")
-        generate_report = args.get("generate_value_report", False)
-        
-        reply_text = "[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。请向用户打招呼并开始探讨技术和成本 (How)。"
-        
-        # 实时生成报告逻辑
-        if generate_report:
-            try:
-                # Mock state update logic just for generating report instantly
-                temp_state = dict(state)
-                temp_state["value_amount"] = value_amount_text
-                prompt = "请基于我们之前的探讨，撰写一份非常详尽的《商业价值报告》(PDF适用)。\n"
-                prompt += f"其中必须明确提到用户刚刚确认的量化商业价值预估：{value_amount_text}\n"
-                prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
-                result_msg = await _generate_pdf_and_upload(temp_state, config, prompt, "商业价值报告")
-                reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。同时，商业报告生成成功：\n{result_msg}\n请一并告知用户并打招呼探讨技术。"
-            except Exception as e:
-                reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。但商业报告生成失败：{str(e)}\n请告知用户。"
-            
-        tool_msg = ToolMessage(
-            tool_call_id=tool_call_id,
-            name="TransitionToExpert",
-            content=reply_text
-        )
-        return {
-            "messages": [response, tool_msg],
-            "current_phase": "EXPERT",
-            "market_value": market_value_text,
-            "value_amount": value_amount_text,
-            "generate_value_report": generate_report
-        }
+    if response.tool_calls:
+        tool_messages = []
+        state_updates = {}
+        for tc in response.tool_calls:
+            msg, updates = await process_single_tool(tc, state, config, "VALUE")
+            tool_messages.append(msg)
+            state_updates.update(updates)
+        return {"messages": [response] + tool_messages, **state_updates}
         
     return {"messages": [response]}
 
@@ -225,56 +231,16 @@ async def expert_node(state: AgentState, config: RunnableConfig):
     llm_with_tools = llm.bind_tools([TransitionToDone, TransitionToPhase, GenerateValueReport, GenerateTechReport])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
     
-    uni_result = await handle_universal_tools(response, state, config)
-    if uni_result: return uni_result
-    
-    if response.tool_calls and response.tool_calls[0]["name"] == "TransitionToDone":
-        tool_call_id = response.tool_calls[0]["id"]
-        args = response.tool_calls[0].get("args", {})
-        generate_report = args.get("generate_technical_report", False)
-        
-        reply_text = "[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。用户选择了无需报告。流程结束。"
-        
-        temp_how = {
-            "project_name": args.get("project_name", ""),
-            "how_overview": args.get("how_overview", ""),
-            "scope": args.get("scope", ""),
-            "objective": args.get("objective", ""),
-            "key_results": args.get("key_results", ""),
-            "cost": args.get("cost", ""),
-            "milestones": {
-                "M1": args.get("m1", ""),
-                "M2": args.get("m2", ""),
-                "M3": args.get("m3", ""),
-                "M4": args.get("m4", "")
-            }
-        }
-        
-        if generate_report:
-            try:
-                temp_state = dict(state)
-                temp_state["how"] = temp_how
-                pdf_instructions = args.get("pdf_instructions", "")
-                prompt = "请基于我们之前的完整探讨，为您撰写一份极其详尽的《详细技术路径报告》(PDF适用)。\n"
-                if pdf_instructions: prompt += f"【用户特别嘱咐】：{pdf_instructions}\n"
-                prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
-                result_msg = await _generate_pdf_and_upload(temp_state, config, prompt, "详细技术路径报告")
-                reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。技术报告生成成功：\n{result_msg}\n请告知用户。"
-            except Exception as e:
-                reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。但技术报告生成失败：{str(e)}\n请告知用户。"
-            
-        tool_msg = ToolMessage(
-            tool_call_id=tool_call_id,
-            name="TransitionToDone",
-            content=reply_text
-        )
-        return {
-            "messages": [response, tool_msg],
-            "current_phase": "FINISHED",
-            "generate_tech_report": generate_report,
-            "pdf_instructions": args.get("pdf_instructions", ""),
-            "how": temp_how
-        }
+    if response.tool_calls:
+        tool_messages = []
+        state_updates = {}
+        # Support FINISHED phase chatting directly with expert_node
+        phase_name = state.get("current_phase", "EXPERT")
+        for tc in response.tool_calls:
+            msg, updates = await process_single_tool(tc, state, config, phase_name)
+            tool_messages.append(msg)
+            state_updates.update(updates)
+        return {"messages": [response] + tool_messages, **state_updates}
         
     return {"messages": [response]}
 
