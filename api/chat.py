@@ -67,6 +67,9 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                     # 过滤掉带有 hide_stream 标签的后台内部大模型调用（如生成报告正文的内部 LLM）
                     tags = event.get("tags", [])
                     if "hide_stream" in tags:
+                        # 核心修复：发送 SSE 注释作为心跳保活包
+                        # 防止在生成万字长文(40-60秒)时，Nginx 或浏览器因为长时间无数据而悄悄断开连接(导致没有结果没有报错)
+                        yield ": keepalive\n\n"
                         continue
                         
                     # 报告节点的内部推理（如果模型没按规范调用Tool而是直接输出JSON）不需要在前端打字机显示
