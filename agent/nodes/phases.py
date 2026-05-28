@@ -17,13 +17,17 @@ class TransitionToValue(BaseModel):
     """当用户确认了产品边界和需求(What)，并且同意进入商业价值与市场分析(Value)探讨时调用此工具。"""
     what: str = Field(description="总结提炼出的具体创新产品形态(What)")
 
-class TransitionToExpert(BaseModel):
-    """当用户确认了商业价值(Value)与具体量化金额，并且同意进入技术路线(How)探讨时调用此工具。"""
+class SaveValueCanvas(BaseModel):
+    """【画布保存工具】：当商业价值探讨完毕，且用户确认了具体量化金额后，必须立刻调用此工具将结论锁定存入画布（这是生成报告或进入下一阶段的绝对前置条件）。"""
     market_value: str = Field(description="总结提炼出的核心商业价值与市场分析")
     value_amount: str = Field(description="具体量化的商业价值预估(例如'50万元')")
 
-class TransitionToDone(BaseModel):
-    """当用户确认了最终的技术路线和落地方案(How)，并且同意结束讨论时调用此工具。"""
+class TransitionToExpert(BaseModel):
+    """【阶段流转工具】：仅在完成画布锁定后，且用户明确同意进入下一阶段时调用。此操作将使流程正式进入技术探讨阶段。"""
+    pass
+
+class SaveTechCanvas(BaseModel):
+    """【画布保存工具】：当技术方案的核心要素全部探讨完毕后，必须立刻调用此工具将结论锁定存入画布（这是生成技术报告或结项的绝对前置条件）。"""
     project_name: str = Field(description="项目名称")
     how_overview: str = Field(description="技术方案概览")
     scope: str = Field(description="项目范围")
@@ -34,6 +38,10 @@ class TransitionToDone(BaseModel):
     m2: str = Field(description="里程碑2的核心任务")
     m3: str = Field(description="里程碑3的核心任务")
     m4: str = Field(description="里程碑4的核心任务")
+
+class TransitionToDone(BaseModel):
+    """【结项流转工具】：仅在完成技术画布锁定后，且用户确认无需补充时调用。此操作将结束整个探讨流程。"""
+    pass
 
 class TransitionToPhase(BaseModel):
     """【时空穿梭工具】：当用户明确要求跳回或修改之前阶段的内容（例如：重新讨论痛点、重新定义产品）时，必须调用此工具跳转到指定阶段，不可在当前阶段强答。"""
@@ -76,8 +84,8 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
         return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 已记录关于 '{info}' 的变更。请根据此变更调整后续探讨方向。"), {}
 
     elif t_name == "GenerateValueReport":
-        if current_phase in ["COACH", "PM"]:
-            return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成商业报告。因为系统还没有推进到价值评估阶段。请顺势引导用户完成当前阶段探讨。"), {}
+        if not state.get("value_amount"):
+            return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成商业报告。因为系统画布中尚未正式存入核心数据(value_amount)。请先调用 SaveValueCanvas 工具将结论锁定到画布后，再生成报告。"), {}
         try:
             prompt = "请生成一份《商业价值报告》。"
             extra = args.get("additional_instructions", "")
@@ -89,8 +97,8 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
 
     elif t_name == "GenerateTechReport":
-        if current_phase in ["COACH", "PM", "VALUE"]:
-            return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成技术报告。因为系统还没推进到技术规划阶段。请顺势引导用户完成当前阶段探讨。"), {}
+        if not state.get("how") or not state["how"].get("cost"):
+            return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成技术报告。因为系统画布中尚未正式存入技术里程碑等核心数据(how)。请先调用 SaveTechCanvas 工具将结论锁定到画布后，再生成报告。"), {}
         try:
             prompt = "请生成一份《详细技术路径报告》。"
             extra = args.get("additional_instructions", "")
@@ -110,32 +118,42 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
         what_text = args.get("what", "")
         return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 已成功切换至 VALUE 阶段。请向用户打招呼并开始探讨市场价值与商业潜力。"), {"current_phase": "VALUE", "what": what_text}
         
-    elif current_phase == "VALUE" and t_name == "TransitionToExpert":
+    elif t_name == "SaveValueCanvas":
         market_value_text = args.get("market_value", "")
         value_amount_text = args.get("value_amount", "")
-        
-        reply_text = f"[系统回复] 已确认价值，已成功切换至 EXPERT 阶段。请向用户打招呼并开始探讨技术路线。"
-        return ToolMessage(tool_call_id=t_id, name=t_name, content=reply_text), {
-            "current_phase": "EXPERT", "market_value": market_value_text, "value_amount": value_amount_text
-        }
-        
-    elif (current_phase == "EXPERT" or current_phase == "FINISHED") and t_name == "TransitionToDone":
-        temp_how = {
-            "project_name": args.get("project_name", ""),
-            "how_overview": args.get("how_overview", ""),
-            "scope": args.get("scope", ""),
-            "objective": args.get("objective", ""),
-            "key_results": args.get("key_results", ""),
-            "cost": args.get("cost", ""),
-            "milestones": {
-                "M1": args.get("m1", ""), "M2": args.get("m2", ""), "M3": args.get("m3", ""), "M4": args.get("m4", "")
+        return ToolMessage(
+            tool_call_id=t_id,
+            name=t_name,
+            content=f"[系统回复] 商业价值结论已成功锁定并存入画布！\n【强制指令】：请向用户抛出 3 个处理选项引导下一步操作（[选项A] 生成报告, [选项B] 直接进入下一阶段, [选项C] 补充修改）。绝对不要自行跳往下一阶段。"
+        ), {"market_value": market_value_text, "value_amount": value_amount_text}
+
+    elif t_name == "SaveTechCanvas":
+        return ToolMessage(
+            tool_call_id=t_id,
+            name=t_name,
+            content=f"[系统回复] 技术方案结论已成功锁定并存入画布！\n【强制指令】：请向用户抛出 3 个处理选项引导下一步操作（[选项A] 生成报告, [选项B] 结项, [选项C] 补充修改）。绝对不要自行结项。"
+        ), {
+            "how": {
+                "project_name": args.get("project_name", ""),
+                "how_overview": args.get("how_overview", ""),
+                "scope": args.get("scope", ""),
+                "objective": args.get("objective", ""),
+                "key_results": args.get("key_results", ""),
+                "cost": args.get("cost", ""),
+                "m1": args.get("m1", ""),
+                "m2": args.get("m2", ""),
+                "m3": args.get("m3", ""),
+                "m4": args.get("m4", ""),
             }
         }
+
+    elif current_phase == "VALUE" and t_name == "TransitionToExpert":
+        reply_text = f"[系统回复] 已确认价值，已成功切换至 EXPERT 阶段。请向用户打招呼并开始探讨技术路线。"
+        return ToolMessage(tool_call_id=t_id, name=t_name, content=reply_text), {"current_phase": "EXPERT"}
         
+    elif (current_phase == "EXPERT" or current_phase == "FINISHED") and t_name == "TransitionToDone":
         reply_text = "[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。请告知用户已顺利结项。"
-        return ToolMessage(tool_call_id=t_id, name=t_name, content=reply_text), {
-            "current_phase": "FINISHED", "how": temp_how
-        }
+        return ToolMessage(tool_call_id=t_id, name=t_name, content=reply_text), {"current_phase": "FINISHED"}
         
     # Unhandled tool fallback
     return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 错误：无法在当前阶段({current_phase})调用工具 {t_name}，或者参数错误。请勿再尝试调用此工具，直接回复用户。"), {}
@@ -148,7 +166,7 @@ async def coach_node(state: AgentState, config: RunnableConfig):
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
     
-    llm_with_tools = llm.bind_tools([TransitionToPM, TransitionToPhase, GenerateValueReport, GenerateTechReport])
+    llm_with_tools = llm.bind_tools([TransitionToPM, TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
     
     if response.tool_calls:
@@ -169,7 +187,7 @@ async def pm_node(state: AgentState, config: RunnableConfig):
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
     
-    llm_with_tools = llm.bind_tools([TransitionToValue, TransitionToPhase, GenerateValueReport, GenerateTechReport])
+    llm_with_tools = llm.bind_tools([TransitionToValue, TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
     
     if response.tool_calls:
@@ -190,7 +208,7 @@ async def value_node(state: AgentState, config: RunnableConfig):
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
     
-    llm_with_tools = llm.bind_tools([TransitionToExpert, TransitionToPhase, GenerateValueReport, GenerateTechReport])
+    llm_with_tools = llm.bind_tools([SaveValueCanvas, TransitionToExpert, TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
     
     if response.tool_calls:
@@ -211,7 +229,7 @@ async def expert_node(state: AgentState, config: RunnableConfig):
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
     
-    llm_with_tools = llm.bind_tools([TransitionToDone, TransitionToPhase, GenerateValueReport, GenerateTechReport])
+    llm_with_tools = llm.bind_tools([SaveTechCanvas, TransitionToDone, TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
     
     if response.tool_calls:
