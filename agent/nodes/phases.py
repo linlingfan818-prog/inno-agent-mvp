@@ -252,6 +252,10 @@ import httpx
 
 async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfig, prompt: str, report_type_name: str) -> str:
     """Helper function to generate Markdown from prompt and upload it."""
+    
+    # 映射英文缩写，用于规避第三方后端乱码
+    report_type_name_en = "Value" if "商业" in report_type_name else "Tech"
+    
     api_key = config.get("configurable", {}).get("api_key")
     llm = initialize_llm(custom_api_key=api_key)
     
@@ -332,10 +336,14 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
         try:
             async with httpx.AsyncClient() as client:
                 with open(file_path, "rb") as f:
-                    files = {'file': (file_name, f, 'text/markdown')}
+                    # ⚠️ 关键修复：老旧的外部 Java/Tomcat 后端在解析 Multipart/form-data 时默认使用 ISO-8859-1。
+                    # 如果传中文 filename 会导致不可逆的乱码（如 ä¸ä¸ª...）。
+                    # 因此物理上传的文件名采用纯英文+ID，而将真正的中文名放在 title 字段中传递！
+                    safe_upload_name = f"Report_{report_type_name_en}_{report_id}.md"
+                    files = {'file': (safe_upload_name, f, 'text/markdown')}
                     data = {
                         'conversationId': session_id,
-                        'title': clean_project_name,
+                        'title': clean_project_name, # 后端通常能正确以 UTF-8 解析表单字段
                         'username': username
                     }
                     headers = {"X-API-Key": external_api_key}
