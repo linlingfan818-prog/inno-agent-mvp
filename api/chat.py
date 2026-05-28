@@ -64,6 +64,11 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
 
                 # 通道A：文字打字机流
                 if kind == "on_chat_model_stream":
+                    # 过滤掉带有 hide_stream 标签的后台内部大模型调用（如生成报告正文的内部 LLM）
+                    tags = event.get("tags", [])
+                    if "hide_stream" in tags:
+                        continue
+                        
                     # 报告节点的内部推理（如果模型没按规范调用Tool而是直接输出JSON）不需要在前端打字机显示
                     if current_running_node != "report_node":
                         chunk = event["data"]["chunk"]
