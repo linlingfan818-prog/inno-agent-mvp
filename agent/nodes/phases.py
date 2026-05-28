@@ -17,10 +17,9 @@ class TransitionToValue(BaseModel):
     what: str = Field(description="总结提炼出的具体创新产品形态(What)")
 
 class TransitionToExpert(BaseModel):
-    """当用户确认了商业价值(Value)与具体量化金额，并且做出是否生成报告的选择后，调用此工具进入技术路线(How)探讨。"""
+    """当用户确认了商业价值(Value)与具体量化金额，并且同意进入技术路线(How)探讨时调用此工具。"""
     market_value: str = Field(description="总结提炼出的核心商业价值与市场分析")
     value_amount: str = Field(description="具体量化的商业价值预估(例如'50万元')")
-    generate_value_report: bool = Field(description="用户是否选择生成商业价值报告PDF (若用户选择跳过则为False)")
 
 class TransitionToDone(BaseModel):
     """当用户确认了最终的技术路线和落地方案(How)，并且同意结束讨论时调用此工具。"""
@@ -34,19 +33,22 @@ class TransitionToDone(BaseModel):
     m2: str = Field(description="里程碑2的核心任务")
     m3: str = Field(description="里程碑3的核心任务")
     m4: str = Field(description="里程碑4的核心任务")
-    pdf_instructions: str = Field(description="用户对生成技术报告的附加要求(如有)")
-    generate_technical_report: bool = Field(description="用户是否选择一并生成详细技术路径报告PDF (若用户选择无需报告只提报画布，则为False)")
 
 class TransitionToPhase(BaseModel):
     """【时空穿梭工具】：当用户明确要求跳回或修改之前阶段的内容（例如：重新讨论痛点、重新定义产品）时，必须调用此工具跳转到指定阶段，不可在当前阶段强答。"""
     target_phase: str = Field(description="目标阶段，必须是以下之一: COACH (痛点), PM (产品), VALUE (商业价值), EXPERT (技术实现)")
 
+class AnalyzeContextImpact(BaseModel):
+    """【时空穿梭冲突检测工具】：当用户在当前阶段对核心信息做出了实质性的修改或补充，且这些修改可能影响后续阶段（若有）的上下文时调用此工具。"""
+    changed_information: str = Field(description="用户补充或修改的具体信息内容")
+    current_phase: str = Field(description="当前所在的阶段名称")
+
 class GenerateValueReport(BaseModel):
-    """【万能生成工具】：当用户在任何时候单独要求“重新生成”或“补充生成”【商业价值报告】时调用此工具。注意：必须满足前置条件(已有价值金额)才能成功。"""
+    """【生成商业价值报告工具】：当用户选择生成商业价值报告时调用此工具。此工具【不会】导致阶段跳转，仅生成报告。"""
     additional_instructions: str = Field(description="用户补充的生成要求(如有)")
 
 class GenerateTechReport(BaseModel):
-    """【万能生成工具】：当用户在任何时候单独要求“重新生成”或“补充生成”【技术路径报告】时调用此工具。注意：必须满足前置条件(已有技术方案)才能成功。"""
+    """【生成技术路径报告工具】：当用户选择生成技术路径报告时调用此工具。此工具【不会】导致阶段跳转，仅生成报告。"""
     additional_instructions: str = Field(description="用户补充的生成要求(如有)")
 
 # Helper to read prompts
@@ -68,17 +70,20 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
         if target not in ["COACH", "PM", "VALUE", "EXPERT"]: target = "COACH"
         return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 时空穿梭成功。状态已退回至 {target} 阶段。请向用户打招呼并顺着他的话题重新探讨。原有数据已保留，无需重复收集用户未修改的部分。"), {"current_phase": target}
         
+    elif t_name == "AnalyzeContextImpact":
+        info = args.get("changed_information", "")
+        return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 已记录关于 '{info}' 的变更。请根据此变更调整后续探讨方向。"), {}
+
     elif t_name == "GenerateValueReport":
         if not state.get("value_amount"):
             return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成商业报告。因为系统还没有收集到明确的商业价值预估(value_amount)。请先和用户探讨商业价值并引导用户确认金额。"), {}
         try:
+            prompt = "请生成一份《商业价值报告》。"
             extra = args.get("additional_instructions", "")
-            prompt = "请基于我们之前的探讨，撰写一份非常详尽的《商业价值报告》(Markdown格式)。\n"
-            prompt += f"其中必须明确提到用户刚刚确认的量化商业价值预估：{state.get('value_amount', '未知')}\n"
-            prompt += f"【用户的补充要求】：{extra}\n"
+            if extra: prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
             result_msg = await _generate_markdown_and_upload(state, config, prompt, "商业价值报告")
-            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成成功：\n{result_msg}\n【系统强制指令】：由于文件已经生成并保存，你在接下来的回复中【绝对不可以】将报告的正文内容输出到聊天框中！你只能向用户简短播报“报告已生成完毕”并引导其点击链接下载。"), {}
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 商业价值报告生成成功：\n{result_msg}\n【系统强制指令】：报告已生成并保存。你在接下来的回复中【绝对不可以】输出报告正文。你必须向用户提供下载链接，并抛出选择题询问用户：‘报告已生成，请问您对报告内容是否有补充？如果确认无误，我们可以进入下一阶段。’ 选项必须为：\n[选项A] ✅ 报告没问题，确认进入下一阶段\n[选项B] ✏️ 我需要补充或调整一些内容..."), {}
         except Exception as e:
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
 
@@ -86,12 +91,12 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
         if not state.get("how") or not state["how"].get("cost"):
             return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成技术报告。因为系统还没有收集到技术里程碑(how)等核心信息。请向用户解释并引导其完成相关探讨。"), {}
         try:
+            prompt = "请生成一份《详细技术路径报告》。"
             extra = args.get("additional_instructions", "")
-            prompt = "请基于我们之前的完整探讨，为您撰写一份极其详尽的《详细技术路径报告》(Markdown格式)。\n"
-            prompt += f"【用户的补充要求】：{extra}\n"
+            if extra: prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
             result_msg = await _generate_markdown_and_upload(state, config, prompt, "技术路径报告")
-            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成成功：\n{result_msg}\n【系统强制指令】：由于文件已经生成并保存，你在接下来的回复中【绝对不可以】将报告的正文内容输出到聊天框中！你只能向用户简短播报“报告已生成完毕”并引导其点击链接下载。"), {}
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 技术路径报告生成成功：\n{result_msg}\n【系统强制指令】：报告已生成并保存。你在接下来的回复中【绝对不可以】输出报告正文。你必须向用户提供下载链接，并抛出选择题询问用户：‘技术报告已生成，请问您对报告内容是否有补充？如果确认无误，我们可以结项。’ 选项必须为：\n[选项A] ✅ 报告没问题，确认结项\n[选项B] ✏️ 我需要补充或调整一些内容..."), {}
         except Exception as e:
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
 
@@ -107,26 +112,13 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
     elif current_phase == "VALUE" and t_name == "TransitionToExpert":
         market_value_text = args.get("market_value", "")
         value_amount_text = args.get("value_amount", "")
-        generate_report = args.get("generate_value_report", False)
-        reply_text = "[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。请向用户打招呼并开始探讨技术和成本 (How)。"
-        if generate_report:
-            try:
-                temp_state = dict(state)
-                temp_state["value_amount"] = value_amount_text
-                prompt = "请基于我们之前的探讨，撰写一份非常详尽的《商业价值报告》(Markdown格式)。\n"
-                prompt += f"其中必须明确提到用户刚刚确认的量化商业价值预估：{value_amount_text}\n"
-                prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
-                result_msg = await _generate_markdown_and_upload(temp_state, config, prompt, "商业价值报告")
-                reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。同时，商业报告生成成功：\n{result_msg}\n【系统强制指令】：你在接下来的回复中【绝对不可以】输出报告正文，只需简短播报生成成功并给出链接，然后直接打招呼探讨技术。"
-            except Exception as e:
-                reply_text = f"[系统回复] 已确认价值。已成功切换至 EXPERT 阶段。但商业报告生成失败：{str(e)}\n请告知用户。"
+        
+        reply_text = f"[系统回复] 已确认价值，已成功切换至 EXPERT 阶段。请向用户打招呼并开始探讨技术路线。"
         return ToolMessage(tool_call_id=t_id, name=t_name, content=reply_text), {
-            "current_phase": "EXPERT", "market_value": market_value_text, "value_amount": value_amount_text, "generate_value_report": generate_report
+            "current_phase": "EXPERT", "market_value": market_value_text, "value_amount": value_amount_text
         }
         
     elif (current_phase == "EXPERT" or current_phase == "FINISHED") and t_name == "TransitionToDone":
-        generate_report = args.get("generate_technical_report", False)
-        reply_text = "[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。用户选择了无需报告。流程结束。"
         temp_how = {
             "project_name": args.get("project_name", ""),
             "how_overview": args.get("how_overview", ""),
@@ -138,20 +130,10 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
                 "M1": args.get("m1", ""), "M2": args.get("m2", ""), "M3": args.get("m3", ""), "M4": args.get("m4", "")
             }
         }
-        if generate_report:
-            try:
-                temp_state = dict(state)
-                temp_state["how"] = temp_how
-                pdf_instructions = args.get("pdf_instructions", "")
-                prompt = "请基于我们之前的完整探讨，为您撰写一份极其详尽的《详细技术路径报告》(Markdown格式)。\n"
-                if pdf_instructions: prompt += f"【用户特别嘱咐】：{pdf_instructions}\n"
-                prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
-                result_msg = await _generate_markdown_and_upload(temp_state, config, prompt, "技术路径报告")
-                reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。技术报告生成成功：\n{result_msg}\n【系统强制指令】：你在接下来的回复中【绝对不可以】输出报告正文，只需简短播报生成成功并给出链接，然后告知已结项。"
-            except Exception as e:
-                reply_text = f"[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。但技术报告生成失败：{str(e)}\n请告知用户。"
+        
+        reply_text = "[系统回复] 已成功确认技术方案，阶段变更为 FINISHED。请告知用户已顺利结项。"
         return ToolMessage(tool_call_id=t_id, name=t_name, content=reply_text), {
-            "current_phase": "FINISHED", "generate_tech_report": generate_report, "pdf_instructions": args.get("pdf_instructions", ""), "how": temp_how
+            "current_phase": "FINISHED", "how": temp_how
         }
         
     # Unhandled tool fallback
