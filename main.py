@@ -20,6 +20,21 @@ if os.path.exists("static"):
 async def serve_frontend():
     return FileResponse("static/index.html")
 
+@app.get("/api/download")
+async def download_file(file: str):
+    import urllib.parse
+    # The file query param will be automatically URL-decoded by FastAPI
+    # Ensure it doesn't try to access directories outside static/reports
+    safe_file = os.path.basename(file)
+    file_path = os.path.join("static", "reports", safe_file)
+    if os.path.exists(file_path):
+        return FileResponse(
+            path=file_path, 
+            filename=safe_file,
+            media_type="application/octet-stream"
+        )
+    return {"error": "File not found"}
+
 if __name__ == "__main__":
     import uvicorn
     # 异步高并发启动

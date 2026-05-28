@@ -316,9 +316,9 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
     with open(file_path, "w", encoding="utf-8") as result_file:
         result_file.write(md_text)
         
-    # 修复中文文件名在浏览器下载时乱码的问题 (URL Encode)
+    # 修复中文文件名在浏览器下载时乱码的问题 (URL Encode + 强制 Content-Disposition)
     encoded_file_name = urllib.parse.quote(file_name)
-    download_url = f"/static/reports/{encoded_file_name}"
+    download_url = f"/api/download?file={encoded_file_name}"
     
     # 4. 上传到外部数据后台
     username = config.get("configurable", {}).get("username", "anonymous")
