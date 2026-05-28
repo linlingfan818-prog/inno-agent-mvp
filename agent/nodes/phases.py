@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from langchain_core.runnables.config import RunnableConfig
 from agent.state import AgentState
 from agent.config import initialize_llm
+import markdown
 
 # --- Phase Transition Tools ---
 # These are the tools the LLM can call to trigger a state transition after user confirmation.
@@ -292,15 +293,37 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
     os.makedirs(reports_dir, exist_ok=True)
     
     # 如果文件名冲突，加个随机 ID
-    file_name = f"{clean_project_name}_{report_type_name}.md"
+    file_name = f"{clean_project_name}_{report_type_name}.html"
     file_path = os.path.join(reports_dir, file_name)
     if os.path.exists(file_path):
-        file_name = f"{clean_project_name}_{report_type_name}_{report_id}.md"
+        file_name = f"{clean_project_name}_{report_type_name}_{report_id}.html"
         file_path = os.path.join(reports_dir, file_name)
     
-    # 3. 写入 Markdown 文件
+    # 3. 将 Markdown 转换为 HTML 并写入文件
+    html_content = markdown.markdown(md_text, extensions=['fenced_code', 'tables'])
+    # 添加简单的 CSS 样式使其更易读
+    styled_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{clean_project_name} - {report_type_name}</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; padding: 2rem; max-width: 800px; margin: 0 auto; color: #333; }}
+        h1, h2, h3 {{ color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }}
+        table {{ border-collapse: collapse; width: 100%; margin-bottom: 1rem; }}
+        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+        th {{ background-color: #f2f2f2; }}
+        pre {{ background-color: #f6f8fa; padding: 16px; border-radius: 3px; overflow: auto; }}
+        code {{ background-color: #f6f8fa; padding: 0.2em 0.4em; border-radius: 3px; font-family: monospace; }}
+    </style>
+</head>
+<body>
+{html_content}
+</body>
+</html>"""
+    
     with open(file_path, "w", encoding="utf-8") as result_file:
-        result_file.write(md_text)
+        result_file.write(styled_html)
         
     # 修复中文文件名在浏览器下载时乱码的问题 (URL Encode + 强制 Content-Disposition)
     encoded_file_name = urllib.parse.quote(file_name)
@@ -321,8 +344,8 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
                     # ⚠️ 关键修复：老旧的外部 Java/Tomcat 后端在解析 Multipart/form-data 时默认使用 ISO-8859-1。
                     # 如果传中文 filename 会导致不可逆的乱码（如 ä¸ä¸ª...）。
                     # 因此物理上传的文件名采用纯英文+ID，而将真正的中文名放在 title 字段中传递！
-                    safe_upload_name = f"Report_{report_type_name_en}_{report_id}.md"
-                    files = {'file': (safe_upload_name, f, 'text/markdown')}
+                    safe_upload_name = f"Report_{report_type_name_en}_{report_id}.html"
+                    files = {'file': (safe_upload_name, f, 'text/html')}
                     data = {
                         'conversationId': session_id,
                         'title': clean_project_name, # 后端通常能正确以 UTF-8 解析表单字段
