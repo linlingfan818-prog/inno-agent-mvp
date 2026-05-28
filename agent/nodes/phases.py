@@ -76,8 +76,8 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
         return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 已记录关于 '{info}' 的变更。请根据此变更调整后续探讨方向。"), {}
 
     elif t_name == "GenerateValueReport":
-        if not state.get("value_amount"):
-            return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成商业报告。因为系统还没有收集到明确的商业价值预估(value_amount)。请先和用户探讨商业价值并引导用户确认金额。"), {}
+        if current_phase in ["COACH", "PM"]:
+            return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成商业报告。因为系统还没有推进到价值评估阶段。请顺势引导用户完成当前阶段探讨。"), {}
         try:
             prompt = "请生成一份《商业价值报告》。"
             extra = args.get("additional_instructions", "")
@@ -89,8 +89,8 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
 
     elif t_name == "GenerateTechReport":
-        if not state.get("how") or not state["how"].get("cost"):
-            return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成技术报告。因为系统还没有收集到技术里程碑(how)等核心信息。请向用户解释并引导其完成相关探讨。"), {}
+        if current_phase in ["COACH", "PM", "VALUE"]:
+            return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成技术报告。因为系统还没推进到技术规划阶段。请顺势引导用户完成当前阶段探讨。"), {}
         try:
             prompt = "请生成一份《详细技术路径报告》。"
             extra = args.get("additional_instructions", "")
