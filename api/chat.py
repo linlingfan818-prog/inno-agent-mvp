@@ -9,6 +9,19 @@ from agent.config import initialize_llm
 
 router = APIRouter()
 
+def _normalize_how_data(how_data):
+    if not isinstance(how_data, dict):
+        return how_data
+    # 如果发现 m1 在顶层，说明是旧版本保存的脏数据，将其平移到 milestones 中
+    if "m1" in how_data and "milestones" not in how_data:
+        how_data["milestones"] = {
+            "M1": how_data.pop("m1", ""),
+            "M2": how_data.pop("m2", ""),
+            "M3": how_data.pop("m3", ""),
+            "M4": how_data.pop("m4", "")
+        }
+    return how_data
+
 async def dual_channel_stream(user_message: str, session_id: str, api_key: str = None, username: str = None):
     config = {"configurable": {"thread_id": session_id, "api_key": api_key, "username": username or "anonymous"}}
     inputs = {"messages": [("user", user_message)]}
@@ -111,8 +124,9 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                         if "value_amount" in output:
                             current_state_data["value_amount"] = output["value_amount"]
                         if "how" in output:
-                            current_state_data["how"] = output["how"]
-                    
+                            current_state_data["how"] = _normalize_how_data(output["how"])
+                            
+                    # 推送最新状态到前端
                     # 如果是报告节点完成，因为它是非流式的，我们需要手动把它的结果作为 message 推给前端
                     if node_name == "report_node":
                         messages = output.get("messages", []) if isinstance(output, dict) else []
@@ -180,7 +194,7 @@ async def get_history(session_id: str):
             "what": state.values.get("what"),
             "market_value": state.values.get("market_value"),
             "value_amount": state.values.get("value_amount"),
-            "how": state.values.get("how"),
+            "how": _normalize_how_data(state.values.get("how")),
             "messages": messages
         }
     except Exception as e:
