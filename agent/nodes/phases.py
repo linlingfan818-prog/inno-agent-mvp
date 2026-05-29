@@ -286,8 +286,9 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
     sys_msg = SystemMessage(content="你是一个无情的专业报告生成机器，只输出报告正文，绝不说废话。")
     user_msg = HumanMessage(content=final_prompt)
     
-    result = await llm.ainvoke([sys_msg, user_msg], config={"tags": ["hide_stream"]})
-    md_text = result.content
+    md_text = ""
+    async for chunk in llm.astream([sys_msg, user_msg], config={"tags": ["hide_stream"]}):
+        md_text += chunk.content
     
     if not md_text or not md_text.strip() or "好的" in md_text[:20] or "稍候" in md_text or "稍等" in md_text:
         raise Exception("大模型生成了空内容，生成失败。")
