@@ -92,7 +92,7 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
             if extra: prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
             result_msg = await _generate_markdown_and_upload(state, config, prompt, "商业价值报告")
-            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 商业价值报告生成成功：\n{result_msg}\n【系统强制指令】：报告已生成并保存。你在接下来的回复中【绝对不可以】输出报告正文。请告知用户“报告已成功存入后台，随时可以查看和下载”，并抛出选择题询问用户：‘报告已生成，请问您对报告内容是否有补充？如果确认无误，我们可以进入下一阶段。’ 选项必须为：\n[选项A] ✅ 报告没问题，确认进入下一阶段\n[选项B] ✏️ 我需要补充或调整一些内容...")
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 商业价值报告生成成功：\n{result_msg}\n【系统强制指令】：报告已生成并保存。你在接下来的回复中【绝对不可以】输出报告正文。请告知用户“报告已成功存入后台，随时可以查看和下载”，并抛出选择题询问用户：‘报告已生成，请问您对报告内容是否有补充？如果确认无误，我们可以进入下一阶段。’ 选项必须为：\n[选项A] ✅ 报告没问题，确认进入下一阶段\n[选项B] ✏️ 我需要补充或调整一些内容..."), {}
         except Exception as e:
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
 
@@ -106,7 +106,7 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
             if extra: prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
             result_msg = await _generate_markdown_and_upload(state, config, prompt, "技术路径报告")
-            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 技术路径报告生成成功：\n{result_msg}\n【系统强制指令】：报告已生成并保存。你在接下来的回复中【绝对不可以】输出报告正文。请告知用户“技术报告已成功存入后台，随时可以查看和下载”，并抛出选择题询问用户：‘技术报告已生成，请问您对报告内容是否有补充？如果确认无误，我们可以结项。’ 选项必须为：\n[选项A] ✅ 报告没问题，确认结项\n[选项B] ✏️ 我需要补充或调整一些内容...")
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 技术路径报告生成成功：\n{result_msg}\n【系统强制指令】：报告已生成并保存。你在接下来的回复中【绝对不可以】输出报告正文。请告知用户“技术报告已成功存入后台，随时可以查看和下载”，并抛出选择题询问用户：‘技术报告已生成，请问您对报告内容是否有补充？如果确认无误，我们可以结项。’ 选项必须为：\n[选项A] ✅ 报告没问题，确认结项\n[选项B] ✏️ 我需要补充或调整一些内容..."), {}
         except Exception as e:
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
 
