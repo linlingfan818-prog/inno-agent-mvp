@@ -121,7 +121,12 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
 async def chat_endpoint(payload: ChatPayload):
     return StreamingResponse(
         dual_channel_stream(payload.message, payload.session_id, payload.api_key, payload.username), 
-        media_type="text/event-stream"
+        media_type="text/event-stream",
+        headers={
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive"
+        }
     )
 
 @router.get("/history/{session_id}")
