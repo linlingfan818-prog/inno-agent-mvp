@@ -100,7 +100,8 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
         if not state.get("how") or not state["how"].get("cost"):
             return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成技术报告。因为系统画布中尚未正式存入技术里程碑等核心数据(how)。请先调用 SaveTechCanvas 工具将结论锁定到画布后，再生成报告。"), {}
         try:
-            prompt = "请生成一份《详细技术路径报告》。"
+            prompt = "请生成一份《详细技术路径报告》。\n"
+            prompt += "【深度发散要求】：请不要仅局限于前期收集的零散字段，请务必进行深度发散与拓展，补充合理的技术细节、架构选型对比、底层机制和最佳实践，使其达到一份极其详尽、专业的“技术白皮书”的深度。\n"
             extra = args.get("additional_instructions", "")
             if extra: prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
