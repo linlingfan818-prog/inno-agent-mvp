@@ -53,6 +53,7 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                     yield f"event: title_update\ndata: {json.dumps({'title': '新业务探讨'}, ensure_ascii=False)}\n\n"
             
             current_running_node = None
+            hide_stream_buffer = ""
             
             async for event in compiled_graph.astream_events(inputs, config=config, version="v2"):
                 kind = event["event"]
@@ -67,6 +68,19 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                     # 过滤掉带有 hide_stream 标签的后台内部大模型调用（如生成报告正文的内部 LLM）
                     tags = event.get("tags", [])
                     if "hide_stream" in tags:
+                        chunk = event["data"]["chunk"]
+                        if isinstance(chunk, AIMessageChunk) and chunk.content:
+                            hide_stream_buffer += chunk.content
+                            if '\n' in hide_stream_buffer:
+                                lines = hide_stream_buffer.split('\n')
+                                for line in lines[:-1]:
+                                    clean_line = line.strip()
+                                    if clean_line.startswith("#") and len(clean_line) > 1:
+                                        title = clean_line.lstrip("#").strip()
+                                        progress_msg = f"\n> ⏳ 正在深度发散与撰写：**{title}**...\n\n"
+                                        yield f"event: message\ndata: {json.dumps({'chunk': progress_msg}, ensure_ascii=False)}\n\n"
+                                hide_stream_buffer = lines[-1]
+                                
                         # 核心修复：发送 SSE 注释作为心跳保活包
                         # 防止在生成万字长文(40-60秒)时，Nginx 或浏览器因为长时间无数据而悄悄断开连接(导致没有结果没有报错)
                         yield ": keepalive\n\n"
