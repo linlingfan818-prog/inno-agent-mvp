@@ -141,10 +141,12 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
                 "objective": args.get("objective", ""),
                 "key_results": args.get("key_results", ""),
                 "cost": args.get("cost", ""),
-                "m1": args.get("m1", ""),
-                "m2": args.get("m2", ""),
-                "m3": args.get("m3", ""),
-                "m4": args.get("m4", ""),
+                "milestones": {
+                    "M1": args.get("m1", ""),
+                    "M2": args.get("m2", ""),
+                    "M3": args.get("m3", ""),
+                    "M4": args.get("m4", "")
+                }
             }
         }
 
