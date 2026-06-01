@@ -322,8 +322,7 @@
 
         async function loadTokenUsage() {
             try {
-                const currentUsername = document.getElementById('usernameInput').value || localStorage.getItem('username') || "default_user";
-                const res = await fetch(`/api/v1/billing/token-usage?user_id=${encodeURIComponent(currentUsername)}`);
+                const res = await fetch('/api/v1/billing/token-usage');
                 const data = await res.json();
                 if (data.status === 'success') {
                     document.getElementById('tokenCount').innerText = data.data.total_tokens.toLocaleString();
