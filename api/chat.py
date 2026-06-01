@@ -224,13 +224,54 @@ async def delete_session(session_id: str):
         return {"status": "error", "message": str(e)}
 
 @router.get("/billing/token-usage")
-async def get_token_usage():
-    # Mock data，后续可替换为对接内部平台的真实计费接口
-    return {
-        "status": "success",
-        "data": {
-            "total_tokens": 12580,
-            "estimated_cost": 0.25,
-            "currency": "USD"
+async def get_token_usage(user_id: str = "default_user"):
+    import httpx
+    import os
+    
+    # 优先使用环境变量，否则使用文档中提供的默认 Dev Base URL
+    api_base = os.environ.get("DATA_API_BASE_URL", "https://api.llm-incubator.automotive.cloud/dev/v0")
+    external_api_key = os.environ.get("EXTERNAL_API_KEY", "")
+    
+    if not external_api_key:
+        return {
+            "status": "success",
+            "data": {
+                "total_tokens": 0,
+                "estimated_cost": 0.0,
+                "currency": "USD (需配置 EXTERNAL_API_KEY)"
+            }
         }
-    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            headers = {"Authorization": f"Bearer {external_api_key}"}
+            url = f"{api_base}/admin/platform/user-info/llm-usage-details?user_id={user_id}"
+            
+            resp = await client.get(url, headers=headers, timeout=15.0)
+            
+            if str(resp.status_code).startswith("2"):
+                data = resp.json()
+                spend = data.get("spend", 0.0)
+                budget_table = data.get("budget_table", {})
+                rpm_limit = budget_table.get("rpm_limit", 0)
+                
+                return {
+                    "status": "success",
+                    "data": {
+                        # 外部接口没有直接返回 total_tokens，我们这里使用 rpm_limit 或硬编码作为占位，
+                        # 或者您可以后续调整为外部接口能提供的字段
+                        "total_tokens": rpm_limit, 
+                        "estimated_cost": spend,
+                        "currency": "USD"
+                    }
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": f"网关计费接口请求失败: HTTP {resp.status_code} - {resp.text}"
+                }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"连接计费接口异常: {str(e)}"
+        }
