@@ -528,11 +528,12 @@
             // 渲染 Markdown 链接 [text](url)
             html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" style="color:#3b82f6; text-decoration:underline;">$1</a>');
 
-            html = html.replace(/\[选项([A-Z])\](.*?)(\<br\>|$)/g, function(match, letter, content, endBr) {
+            html = html.replace(/\[(?:选项|Option\s*)([A-Z])\](.*?)(\<br\>|$)/gi, function(match, letter, content, endBr) {
                 const cleanContent = content.trim();
                 const safeContentForClick = cleanContent.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                return `<div class="option-card" onclick="selectOption('${letter}: ${safeContentForClick}')">
-                          <span class="option-badge">${letter}</span> ${cleanContent}
+                // The letter is captured as A, B, C, etc. When sending to the backend, we prefix it uniformly
+                return `<div class="option-card" onclick="selectOption('[选项${letter.toUpperCase()}] ${safeContentForClick}')">
+                          <span class="option-badge">${letter.toUpperCase()}</span> ${cleanContent}
                         </div>${endBr}`;
             });
 
