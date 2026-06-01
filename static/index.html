@@ -70,6 +70,14 @@
         </div>
         <div id="keyStatus" style="font-size: 12px; margin-top: -10px; margin-bottom: 15px;"></div>
         
+        <label>Language (语言)</label>
+        <div style="margin-bottom: 15px;">
+            <select id="languageSelect" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #3f3f46; background: #27272a; color: white;">
+                <option value="zh">中文 (Chinese)</option>
+                <option value="en">English</option>
+            </select>
+        </div>
+        
         <div style="margin-top: 15px; display: flex; gap: 10px;">
             <button onclick="newSession()" style="flex: 1; padding: 8px; background: #ea580c; color: white; border: none; border-radius: 4px; cursor: pointer;">+ 开启新对话</button>
             <button onclick="shareSession()" style="padding: 8px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;" title="复制链接分享给同事">🔗 分享</button>
@@ -205,6 +213,15 @@
         
         usernameInput.addEventListener("change", (e) => {
             localStorage.setItem("username", e.target.value);
+        });
+
+        const langSelect = document.getElementById('languageSelect');
+        const savedLang = localStorage.getItem("language");
+        if (savedLang) {
+            langSelect.value = savedLang;
+        }
+        langSelect.addEventListener("change", (e) => {
+            localStorage.setItem("language", e.target.value);
         });
 
         async function checkKey() {
@@ -432,7 +449,8 @@
                         message: msg, 
                         session_id: requestSessionId,
                         api_key: currentApiKey || undefined,
-                        username: currentUsername || undefined
+                        username: currentUsername || undefined,
+                        language: document.getElementById('languageSelect').value || "zh"
                     })
                 });
 

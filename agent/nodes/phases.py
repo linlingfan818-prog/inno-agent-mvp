@@ -61,12 +61,17 @@ class GenerateTechReport(BaseModel):
     additional_instructions: str = Field(description="用户补充的生成要求(如有)")
 
 # Helper to read prompts
-def get_sys_prompt(filename: str) -> str:
+def get_sys_prompt(filename: str, language: str = "zh") -> str:
     prompt_path = os.path.join(os.path.dirname(__file__), "..", "prompts", filename)
+    content = f"【缺少提示词文件: {filename}】"
     if os.path.exists(prompt_path):
         with open(prompt_path, "r", encoding="utf-8") as f:
-            return f.read()
-    return f"【缺少提示词文件: {filename}】"
+            content = f.read()
+    
+    if language == "en":
+        content += "\n\n[CRITICAL SYSTEM INSTRUCTION]: You MUST output your response entirely in English. All UI buttons, reports, and conversational text must be in English. However, if the user explicitly writes in Chinese, you may still understand them, but your reply MUST be in English."
+        
+    return content
 
 async def process_single_tool(tc, state: AgentState, config: RunnableConfig, current_phase: str):
     """处理单个工具调用，返回 (ToolMessage, state_updates)"""
@@ -163,7 +168,8 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
 
 
 async def coach_node(state: AgentState, config: RunnableConfig):
-    sys_content = get_sys_prompt("coach.md")
+    language = config.get("configurable", {}).get("language", "zh")
+    sys_content = get_sys_prompt("coach.md", language)
     sys_msg = SystemMessage(content=sys_content)
     
     api_key = config.get("configurable", {}).get("api_key")
@@ -184,7 +190,8 @@ async def coach_node(state: AgentState, config: RunnableConfig):
     return {"messages": [response]}
 
 async def pm_node(state: AgentState, config: RunnableConfig):
-    sys_content = get_sys_prompt("pm.md")
+    language = config.get("configurable", {}).get("language", "zh")
+    sys_content = get_sys_prompt("pm.md", language)
     sys_msg = SystemMessage(content=sys_content)
     
     api_key = config.get("configurable", {}).get("api_key")
@@ -205,7 +212,8 @@ async def pm_node(state: AgentState, config: RunnableConfig):
     return {"messages": [response]}
 
 async def value_node(state: AgentState, config: RunnableConfig):
-    sys_content = get_sys_prompt("value.md")
+    language = config.get("configurable", {}).get("language", "zh")
+    sys_content = get_sys_prompt("value.md", language)
     sys_msg = SystemMessage(content=sys_content)
     
     api_key = config.get("configurable", {}).get("api_key")
@@ -226,7 +234,8 @@ async def value_node(state: AgentState, config: RunnableConfig):
     return {"messages": [response]}
 
 async def expert_node(state: AgentState, config: RunnableConfig):
-    sys_content = get_sys_prompt("expert.md")
+    language = config.get("configurable", {}).get("language", "zh")
+    sys_content = get_sys_prompt("expert.md", language)
     sys_msg = SystemMessage(content=sys_content)
     
     api_key = config.get("configurable", {}).get("api_key")

@@ -22,8 +22,8 @@ def _normalize_how_data(how_data):
         }
     return how_data
 
-async def dual_channel_stream(user_message: str, session_id: str, api_key: str = None, username: str = None):
-    config = {"configurable": {"thread_id": session_id, "api_key": api_key, "username": username or "anonymous"}}
+async def dual_channel_stream(user_message: str, session_id: str, api_key: str = None, username: str = None, language: str = "zh"):
+    config = {"configurable": {"thread_id": session_id, "api_key": api_key, "username": username or "anonymous", "language": language}}
     inputs = {"messages": [("user", user_message)]}
 
     try:
@@ -148,7 +148,7 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
 @router.post("/chat")
 async def chat_endpoint(payload: ChatPayload):
     return StreamingResponse(
-        dual_channel_stream(payload.message, payload.session_id, payload.api_key, payload.username), 
+        dual_channel_stream(payload.message, payload.session_id, payload.api_key, payload.username, payload.language), 
         media_type="text/event-stream",
         headers={
             "X-Accel-Buffering": "no",
