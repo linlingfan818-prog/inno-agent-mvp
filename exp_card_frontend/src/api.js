@@ -1,4 +1,4 @@
-const API_BASE = 'http://127.0.0.1:8088'
+const API_BASE = ''
 
 export async function healthCheck() {
   const res = await fetch(`${API_BASE}/api/health`)
