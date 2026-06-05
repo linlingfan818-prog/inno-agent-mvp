@@ -15,6 +15,7 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Replace default nginx config to route /api to backend 8088
 RUN echo 'server { \
     listen 8081; \
+    client_max_body_size 50M; \
     location / { \
         root /usr/share/nginx/html; \
         index index.html index.htm; \
@@ -22,6 +23,8 @@ RUN echo 'server { \
     } \
     location /api/ { \
         proxy_pass http://localhost:8088/api/; \
+        proxy_read_timeout 300s; \
+        proxy_connect_timeout 300s; \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
