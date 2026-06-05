@@ -5,16 +5,48 @@ import time
 from typing import Any
 from typing import List, Dict
 
+import os
+import httpx
 from openai import OpenAI
 
 from .config import settings
 
+def _create_openai_client() -> OpenAI:
+    api_key = settings.api_key
+    base_url = settings.base_url
 
-_client = OpenAI(
-    api_key=settings.api_key,
-    base_url=settings.base_url,
-    timeout=settings.timeout_seconds,
-)
+    custom_headers = {
+        "Authorization": f"{api_key if 'Bearer' in api_key else 'Bearer ' + api_key}",
+        "X-LLMI-API-URL": "https://api.llm-incubator.automotive.cloud/dev/v0",
+        "X-Application-Name": "example-app",
+        "Content-Type": "application/json"
+    }
+
+    http_proxy_url = os.getenv("HTTP_PROXY", "http://127.0.0.1:3128")
+    https_proxy_url = os.getenv("HTTPS_PROXY", "http://127.0.0.1:3128")
+
+    mounts = {}
+    mounts["http://api.llm-incubator.automotive.cloud"] = httpx.HTTPTransport(verify=False)
+    mounts["https://api.llm-incubator.automotive.cloud"] = httpx.HTTPTransport(verify=False)
+    
+    if http_proxy_url:
+        mounts["http://"] = httpx.HTTPTransport(proxy=http_proxy_url, verify=False)
+    if https_proxy_url:
+        mounts["https://"] = httpx.HTTPTransport(proxy=https_proxy_url, verify=False)
+
+    http_client = httpx.Client(
+        mounts=mounts,
+        timeout=httpx.Timeout(settings.timeout_seconds, read=settings.timeout_seconds)
+    )
+
+    return OpenAI(
+        api_key=api_key.replace("Bearer ", "") if api_key else "dummy",
+        base_url=base_url,
+        http_client=http_client,
+        default_headers=custom_headers
+    )
+
+_client = _create_openai_client()
 
 
 class LLMError(RuntimeError):
