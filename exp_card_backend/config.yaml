@@ -1,0 +1,26 @@
+app_name: Innovation Experiment Card
+
+debug: true
+
+llm:
+  api_key: "0XYc8Hg7z7wmx-XT7_fdRzjsLFe8eZAqrvuyT-nYBAg"
+  base_url: "https://vio.automotive-wan.com:446/"
+  model: "VIO:Gemini 2.5 Pro"
+  vision_model: "Default"
+  support_image_input: false
+  timeout_seconds: 120
+  max_retries: 2
+  temperature: 0.2
+
+server:
+  host: "127.0.0.1"
+  port: 8088
+  frontend_origin: "http://127.0.0.1:5173"
+
+storage:
+  data_dir: "data"
+  max_upload_mb: 20
+
+parser:
+  default_experiment_days: 14
+  default_interview_sample_size: 10

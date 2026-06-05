@@ -25,3 +25,24 @@ services:
     # 挂载本地代码，方便后面我们修改节点逻辑时支持热重载（无需频繁 rebuild）
     volumes:
       - .:/app
+
+  exp-card-backend:
+    build: ./exp_card_backend
+    container_name: exp_card_backend
+    network_mode: host
+    restart: always
+    environment:
+      - HTTP_PROXY=http://127.0.0.1:3128
+      - HTTPS_PROXY=http://127.0.0.1:3128
+      - http_proxy=http://127.0.0.1:3128
+      - https_proxy=http://127.0.0.1:3128
+      - NO_PROXY=localhost,127.0.0.1,host.docker.internal,api.llm-incubator.automotive.cloud
+      - no_proxy=localhost,127.0.0.1,host.docker.internal,api.llm-incubator.automotive.cloud
+    volumes:
+      - ./exp_card_backend:/app
+
+  exp-card-frontend:
+    build: ./exp_card_frontend
+    container_name: exp_card_frontend
+    network_mode: host
+    restart: always

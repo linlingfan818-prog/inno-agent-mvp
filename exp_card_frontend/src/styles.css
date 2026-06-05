@@ -1,0 +1,138 @@
+:root {
+  font-family: Inter, Arial, sans-serif;
+  color: #1f2937;
+  background: #f3f4f6;
+}
+body {
+  margin: 0;
+}
+* {
+  box-sizing: border-box;
+}
+.page {
+  padding: 24px;
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.status-box, .card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+.status-box {
+  padding: 16px;
+  min-width: 260px;
+}
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.card {
+  padding: 20px;
+}
+.upload-row, .action-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+button, .download-btn {
+  border: none;
+  background: #111827;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+button.primary {
+  background: #2563eb;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.chat-box {
+  height: 420px;
+  overflow: auto;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+.msg {
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+}
+.msg.assistant {
+  background: #eef2ff;
+}
+.msg.user {
+  background: #ecfeff;
+}
+.role {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.field input, .field textarea {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 10px;
+  font: inherit;
+}
+.result-card ul {
+  margin-top: 8px;
+}
+.result-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 20px;
+}
+.mapping-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #fafafa;
+}
+.error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.warning {
+  background: #fffbeb;
+  color: #92400e;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+@media (max-width: 1100px) {
+  .main-grid, .result-grid, .form-grid, .header {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+}
