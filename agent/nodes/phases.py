@@ -281,6 +281,9 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
             role = "AI" if msg.type == "ai" else "用户" if msg.type == "human" else "系统"
             conversation_text += f"[{role}]: {msg.content}\n"
             
+    language = config.get("configurable", {}).get("language", "zh")
+    end_marker = "— End of Report —" if language == "en" else "— 报告完 —"
+    
     final_prompt = f"""
 【任务目标】
 请你作为一个专业的报告撰写专家，根据以下提供的全部项目讨论记录，撰写一份正式的《{report_type_name}》。
@@ -288,14 +291,18 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
 【强制格式要求】
 1. 必须且只能输出 Markdown 正文，绝对不能包含任何聊天寒暄语（如“好的”、“没问题”、“这就为您生成”等）。
 2. 直接以 `# ` 标题开始输出。
-3. 结尾请以 `— 报告完 —` 结束，**绝对不要**在报告末尾包含任何对话选项、提问或类似“[选项A]”的内容。
+3. 结尾请以 `{end_marker}` 结束，**绝对不要**在报告末尾包含任何对话选项、提问或类似“[选项A]”的内容。
 4. {prompt}
 
 【历史讨论记录】
 {conversation_text}
 """
     
-    sys_msg = SystemMessage(content="你是一个无情的专业报告生成机器，只输出报告正文，绝不说废话。")
+    sys_msg_text = "你是一个无情的专业报告生成机器，只输出报告正文，绝不说废话。"
+    if language == "en":
+        sys_msg_text += "\n[CRITICAL STRICT INSTRUCTION]: You MUST write the ENTIRE report in fluent ENGLISH. All headings, paragraphs, bullet points, and analysis MUST be in English. Do NOT output Chinese."
+        
+    sys_msg = SystemMessage(content=sys_msg_text)
     user_msg = HumanMessage(content=final_prompt)
     
     md_text = ""
