@@ -56,7 +56,7 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                 try:
                     llm_title = initialize_llm(custom_api_key=api_key)
                     if language == "en":
-                        prompt = f"Please summarize the following sentence into a very short title of 3-6 words, without any punctuation:\n{user_message}"
+                        prompt = f"Please summarize the following sentence into a very short English title of 3-6 words, without any punctuation. The title MUST be in English:\n{user_message}"
                         default_title = "New Chat"
                     else:
                         prompt = f"请将下面这句话总结为一个5-10个字的极短标题，不要包含任何标点符号：\n{user_message}"
