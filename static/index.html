@@ -387,37 +387,67 @@
         };
 
         function updateCanvasState(data) {
+            const isEn = (document.getElementById('languageSelect').value || localStorage.getItem("language")) === "en";
+            
             if(data.current_phase) {
-                const phaseMap = {
+                const phaseMapZh = {
                     "COACH": "COACH (发掘痛点)",
                     "PM": "PM (产品落地方案)",
                     "VALUE": "VALUE (商业价值分析)",
                     "EXPERT": "EXPERT (技术与成本评估)",
                     "FINISHED": "DONE (结题)"
                 };
+                const phaseMapEn = {
+                    "COACH": "COACH (Pain Points)",
+                    "PM": "PM (Product Plan)",
+                    "VALUE": "VALUE (Biz Value)",
+                    "EXPERT": "EXPERT (Tech & Cost)",
+                    "FINISHED": "DONE (Finished)"
+                };
+                const phaseMap = isEn ? phaseMapEn : phaseMapZh;
                 document.getElementById('phaseContent').innerText = phaseMap[data.current_phase] || data.current_phase;
             }
-            document.getElementById('whyContent').innerText = data.why || "等待挖掘...";
-            document.getElementById('whatContent').innerText = data.what || "等待挖掘...";
-            document.getElementById('valueContent').innerText = data.market_value || "等待挖掘...";
+            
+            const waitingText = isEn ? "Waiting..." : "等待挖掘...";
+            document.getElementById('whyContent').innerText = data.why || waitingText;
+            document.getElementById('whatContent').innerText = data.what || waitingText;
+            document.getElementById('valueContent').innerText = data.market_value || waitingText;
+            
             if(data.how) {
                 const m = data.how.milestones || {};
-                document.getElementById('howContent').innerHTML = `
-                    <b>项目名称:</b> ${data.how.project_name || '-'}<br><br>
-                    <b>方案概览:</b> ${data.how.how_overview || '-'}<br><br>
-                    <b>项目范围:</b> ${data.how.scope || '-'}<br><br>
-                    <b>商业价值预估:</b> <span style="color:#ea580c;font-weight:bold">${data.value_amount || '-'}</span><br><br>
-                    <b>核心目标 (Objective):</b> <div style="background:#f4f4f5;padding:5px;border-radius:4px;font-size:12px;">${data.how.objective || '-'}</div><br>
-                    <b>关键结果 (KRs):</b> <div style="background:#f4f4f5;padding:5px;border-radius:4px;font-size:12px;">${data.how.key_results || '-'}</div><br>
-                    <b>预算成本:</b> ${data.how.cost} 万元<br><br>
-                    <b>项目里程碑:</b><br>
-                    <b>M1:</b> ${m.M1 || '-'}<br>
-                    <b>M2:</b> ${m.M2 || '-'}<br>
-                    <b>M3:</b> ${m.M3 || '-'}<br>
-                    <b>M4:</b> ${m.M4 || '-'}
-                `;
+                if (isEn) {
+                    document.getElementById('howContent').innerHTML = `
+                        <b>Project Name:</b> ${data.how.project_name || '-'}<br><br>
+                        <b>Architecture:</b> ${data.how.how_overview || '-'}<br><br>
+                        <b>Project Scope:</b> ${data.how.scope || '-'}<br><br>
+                        <b>Estimated Value:</b> <span style="color:#ea580c;font-weight:bold">${data.value_amount || '-'}</span><br><br>
+                        <b>Objective:</b> <div style="background:#f4f4f5;padding:5px;border-radius:4px;font-size:12px;">${data.how.objective || '-'}</div><br>
+                        <b>Key Results (KRs):</b> <div style="background:#f4f4f5;padding:5px;border-radius:4px;font-size:12px;">${data.how.key_results || '-'}</div><br>
+                        <b>Budget:</b> ${data.how.cost}<br><br>
+                        <b>Milestones:</b><br>
+                        <b>M1:</b> ${m.M1 || '-'}<br>
+                        <b>M2:</b> ${m.M2 || '-'}<br>
+                        <b>M3:</b> ${m.M3 || '-'}<br>
+                        <b>M4:</b> ${m.M4 || '-'}
+                    `;
+                } else {
+                    document.getElementById('howContent').innerHTML = `
+                        <b>项目名称:</b> ${data.how.project_name || '-'}<br><br>
+                        <b>方案概览:</b> ${data.how.how_overview || '-'}<br><br>
+                        <b>项目范围:</b> ${data.how.scope || '-'}<br><br>
+                        <b>商业价值预估:</b> <span style="color:#ea580c;font-weight:bold">${data.value_amount || '-'}</span><br><br>
+                        <b>核心目标 (Objective):</b> <div style="background:#f4f4f5;padding:5px;border-radius:4px;font-size:12px;">${data.how.objective || '-'}</div><br>
+                        <b>关键结果 (KRs):</b> <div style="background:#f4f4f5;padding:5px;border-radius:4px;font-size:12px;">${data.how.key_results || '-'}</div><br>
+                        <b>预算成本:</b> ${data.how.cost} 万元<br><br>
+                        <b>项目里程碑:</b><br>
+                        <b>M1:</b> ${m.M1 || '-'}<br>
+                        <b>M2:</b> ${m.M2 || '-'}<br>
+                        <b>M3:</b> ${m.M3 || '-'}<br>
+                        <b>M4:</b> ${m.M4 || '-'}
+                    `;
+                }
             } else {
-                document.getElementById('howContent').innerHTML = "等待立项...";
+                document.getElementById('howContent').innerHTML = isEn ? "Waiting for setup..." : "等待立项...";
             }
         }
 
