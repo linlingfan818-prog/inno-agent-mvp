@@ -55,15 +55,22 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
             if is_first_message:
                 try:
                     llm_title = initialize_llm(custom_api_key=api_key)
-                    prompt = f"请将下面这句话总结为一个5-10个字的极短标题，不要包含任何标点符号：\n{user_message}"
+                    if language == "en":
+                        prompt = f"Please summarize the following sentence into a very short title of 3-6 words, without any punctuation:\n{user_message}"
+                        default_title = "New Chat"
+                    else:
+                        prompt = f"请将下面这句话总结为一个5-10个字的极短标题，不要包含任何标点符号：\n{user_message}"
+                        default_title = "新对话"
+                        
                     title_res = await llm_title.ainvoke(prompt)
                     title_text = title_res.content.strip(' "”\'\n。，')
                     if not title_text:
-                        title_text = "新对话"
+                        title_text = default_title
                     yield f"event: title_update\ndata: {json.dumps({'title': title_text}, ensure_ascii=False)}\n\n"
                 except Exception as e:
                     print(f"⚠️ [Title Gen Error]: {e}", flush=True)
-                    yield f"event: title_update\ndata: {json.dumps({'title': '新业务探讨'}, ensure_ascii=False)}\n\n"
+                    err_title = "New Business Discussion" if language == "en" else "新业务探讨"
+                    yield f"event: title_update\ndata: {json.dumps({'title': err_title}, ensure_ascii=False)}\n\n"
             
             current_running_node = None
             hide_stream_buffer = ""
@@ -90,7 +97,10 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                                     clean_line = line.strip()
                                     if clean_line.startswith("#") and len(clean_line) > 1:
                                         title = clean_line.lstrip("#").strip()
-                                        progress_msg = f"\n> ⏳ 正在深度发散与撰写：**{title}**...\n\n"
+                                        if language == "en":
+                                            progress_msg = f"\n> ⏳ Deeply expanding and drafting: **{title}**...\n\n"
+                                        else:
+                                            progress_msg = f"\n> ⏳ 正在深度发散与撰写：**{title}**...\n\n"
                                         yield f"event: message\ndata: {json.dumps({'chunk': progress_msg}, ensure_ascii=False)}\n\n"
                                 hide_stream_buffer = lines[-1]
                                 

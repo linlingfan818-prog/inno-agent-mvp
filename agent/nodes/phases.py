@@ -400,4 +400,11 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
     else:
         upload_status = "ℹ️ 未配置 EXTERNAL_API_KEY，跳过自动同步步骤。"
 
-    return f"📄 《{report_type_name}》已生成完毕。\n\n{upload_status}\n\n👉 请您前往您的专属数据后台系统查看该报告全文。"
+    language = config.get("configurable", {}).get("language", "zh")
+    if language == "en":
+        report_type_name_display = f"{'Value' if '商业' in report_type_name else 'Tech'} Report"
+        msg = f"📄 《{report_type_name_display}》 generation completed.\n\n{upload_status}\n\n👉 Please go to your dedicated data backend system to view the full report."
+    else:
+        msg = f"📄 《{report_type_name}》已生成完毕。\n\n{upload_status}\n\n👉 请您前往您的专属数据后台系统查看该报告全文。"
+    
+    return msg
