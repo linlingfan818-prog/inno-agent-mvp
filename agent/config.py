@@ -52,8 +52,9 @@ def initialize_llm(custom_api_key: str = None, model_source: str = "default") ->
     mounts = {}
     mounts["http://api.llm-incubator.automotive.cloud"] = httpx.HTTPTransport(verify=False)
     mounts["https://api.llm-incubator.automotive.cloud"] = httpx.HTTPTransport(verify=False)
-    mounts["http://contivity.aws3116.ec1.aws.automotive.cloud"] = httpx.HTTPTransport(verify=False)
-    mounts["https://contivity.aws3116.ec1.aws.automotive.cloud"] = httpx.HTTPTransport(verify=False)
+    # 必须加上端口号 :446，否则 httpx 匹配不到，会掉进下面的 https:// 代理规则里！
+    mounts["http://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.HTTPTransport(verify=False)
+    mounts["https://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.HTTPTransport(verify=False)
     
     if http_proxy_url:
         mounts["http://"] = httpx.HTTPTransport(proxy=http_proxy_url, verify=False)

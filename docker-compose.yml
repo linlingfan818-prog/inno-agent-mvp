@@ -19,8 +19,8 @@ services:
       - http_proxy=http://127.0.0.1:3128
       - https_proxy=http://127.0.0.1:3128
       # 强行把公司大模型网关放入豁免白名单，直连穿透，杜绝自签名证书报错
-      - NO_PROXY=localhost,127.0.0.1,host.docker.internal,api.llm-incubator.automotive.cloud
-      - no_proxy=localhost,127.0.0.1,host.docker.internal,api.llm-incubator.automotive.cloud
+      - NO_PROXY=localhost,127.0.0.1,host.docker.internal,api.llm-incubator.automotive.cloud,contivity.aws3116.ec1.aws.automotive.cloud
+      - no_proxy=localhost,127.0.0.1,host.docker.internal,api.llm-incubator.automotive.cloud,contivity.aws3116.ec1.aws.automotive.cloud
       
     # 挂载本地代码，方便后面我们修改节点逻辑时支持热重载（无需频繁 rebuild）
     volumes:
@@ -36,8 +36,8 @@ services:
       - HTTPS_PROXY=http://127.0.0.1:3128
       - http_proxy=http://127.0.0.1:3128
       - https_proxy=http://127.0.0.1:3128
-      - NO_PROXY=localhost,127.0.0.1,host.docker.internal,api.llm-incubator.automotive.cloud
-      - no_proxy=localhost,127.0.0.1,host.docker.internal,api.llm-incubator.automotive.cloud
+      - NO_PROXY=localhost,127.0.0.1,host.docker.internal,api.llm-incubator.automotive.cloud,contivity.aws3116.ec1.aws.automotive.cloud
+      - no_proxy=localhost,127.0.0.1,host.docker.internal,api.llm-incubator.automotive.cloud,contivity.aws3116.ec1.aws.automotive.cloud
     volumes:
       - ./exp_card_backend:/app
 
