@@ -7,6 +7,43 @@ import httpx
 # 1. 显式加载环境变量
 load_dotenv()
 
+# ==========================================
+# 🌟 全局单例 HTTP 客户端池 (核心高并发优化)
+# ==========================================
+# 提取到模块级别，保证在多用户并发时全局复用底层的 TCP 连接池。
+# 彻底消除不断创建客户端导致的连接无法释放和 Too many open files (文件描述符耗尽) 隐患。
+http_proxy_url = os.getenv("HTTP_PROXY", "http://127.0.0.1:3128")
+https_proxy_url = os.getenv("HTTPS_PROXY", "http://127.0.0.1:3128")
+
+# 1. 同步请求用的 Mounts 规则
+_mounts = {}
+_mounts["http://api.llm-incubator.automotive.cloud"] = httpx.HTTPTransport(verify=False)
+_mounts["https://api.llm-incubator.automotive.cloud"] = httpx.HTTPTransport(verify=False)
+_mounts["http://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.HTTPTransport(verify=False)
+_mounts["https://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.HTTPTransport(verify=False)
+
+if http_proxy_url:
+    _mounts["http://"] = httpx.HTTPTransport(proxy=http_proxy_url, verify=False)
+if https_proxy_url:
+    _mounts["https://"] = httpx.HTTPTransport(proxy=https_proxy_url, verify=False)
+
+# 2. 异步请求用的 Mounts 规则
+_async_mounts = {}
+_async_mounts["http://api.llm-incubator.automotive.cloud"] = httpx.AsyncHTTPTransport(verify=False)
+_async_mounts["https://api.llm-incubator.automotive.cloud"] = httpx.AsyncHTTPTransport(verify=False)
+_async_mounts["http://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.AsyncHTTPTransport(verify=False)
+_async_mounts["https://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.AsyncHTTPTransport(verify=False)
+
+if http_proxy_url:
+    _async_mounts["http://"] = httpx.AsyncHTTPTransport(proxy=http_proxy_url, verify=False)
+if https_proxy_url:
+    _async_mounts["https://"] = httpx.AsyncHTTPTransport(proxy=https_proxy_url, verify=False)
+
+# 3. 创建全局单例客户端实例
+GLOBAL_HTTP_CLIENT = httpx.Client(mounts=_mounts, timeout=httpx.Timeout(60.0, read=600.0))
+GLOBAL_HTTP_ASYNC_CLIENT = httpx.AsyncClient(mounts=_async_mounts, timeout=httpx.Timeout(60.0, read=600.0))
+# ==========================================
+
 def initialize_llm(custom_api_key: str = None, model_source: str = "default") -> ChatOpenAI:
     """
     通过 default_headers 双保险焊死必填网关请求头的终极连接器
@@ -45,59 +82,20 @@ def initialize_llm(custom_api_key: str = None, model_source: str = "default") ->
             "Content-Type": "application/json"
         }
 
-    # 2. 纯净代理挂载逻辑
-    http_proxy_url = os.getenv("HTTP_PROXY", "http://127.0.0.1:3128")
-    https_proxy_url = os.getenv("HTTPS_PROXY", "http://127.0.0.1:3128")
-
-    mounts = {}
-    mounts["http://api.llm-incubator.automotive.cloud"] = httpx.HTTPTransport(verify=False)
-    mounts["https://api.llm-incubator.automotive.cloud"] = httpx.HTTPTransport(verify=False)
-    # 必须加上端口号 :446，否则 httpx 匹配不到，会掉进下面的 https:// 代理规则里！
-    mounts["http://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.HTTPTransport(verify=False)
-    mounts["https://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.HTTPTransport(verify=False)
-    
-    if http_proxy_url:
-        mounts["http://"] = httpx.HTTPTransport(proxy=http_proxy_url, verify=False)
-    if https_proxy_url:
-        mounts["https://"] = httpx.HTTPTransport(proxy=https_proxy_url, verify=False)
-
-    # 3. 基础 HTTP 客户端（仅处理网络层穿透与 SSL 豁免）
-    http_client = httpx.Client(
-        mounts=mounts,
-        timeout=httpx.Timeout(60.0, read=600.0)
-    )
-    
-    async_mounts = {}
-    async_mounts["http://api.llm-incubator.automotive.cloud"] = httpx.AsyncHTTPTransport(verify=False)
-    async_mounts["https://api.llm-incubator.automotive.cloud"] = httpx.AsyncHTTPTransport(verify=False)
-    async_mounts["http://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.AsyncHTTPTransport(verify=False)
-    async_mounts["https://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.AsyncHTTPTransport(verify=False)
-    
-    if http_proxy_url:
-        async_mounts["http://"] = httpx.AsyncHTTPTransport(proxy=http_proxy_url, verify=False)
-    if https_proxy_url:
-        async_mounts["https://"] = httpx.AsyncHTTPTransport(proxy=https_proxy_url, verify=False)
-
-    http_async_client = httpx.AsyncClient(
-        mounts=async_mounts,
-        timeout=httpx.Timeout(60.0, read=600.0)
-    )
-
     print(f"🚀 [Core] 正在加载云端模型实例: {model_name} (Source: {model_source})")
 
     # 4. 🌟【大双保险重构】
-    # 我们不仅在 http_client 里带上 headers，
-    # 还必须在 ChatOpenAI 级别显式传入 default_headers！
-    # 这样 LangChain 在执行内部 bind_tools 深拷贝时，这些默认请求头也会被底层 OpenAI SDK 强制带上！
+    # 全局复用网络层 (GLOBAL_HTTP_CLIENT)，但通过 per-request 注入 specific headers (如 Token) 和特定工具能力。
+    # 这样 LangChain 在执行内部 bind_tools 时依然能安全隔离，同时底层的网络性能得到极大释放。
     return ChatOpenAI(
         model=model_name,
         openai_api_key=api_key.replace("Bearer ", ""), 
         openai_api_base=base_url,
         temperature=0.0,
         streaming=True,
-        http_client=http_client,
-        http_async_client=http_async_client,
+        http_client=GLOBAL_HTTP_CLIENT,
+        http_async_client=GLOBAL_HTTP_ASYNC_CLIENT,
         default_headers=custom_headers  # 👈 框架级护甲，杜绝 bind_tools 丢失 Headers
     )
 
-# 移除全局单例，改为在每个请求的 Node 阶段动态创建模型实例
+# 这里只负责每次实例化 ChatOpenAI 这个皮套，底层笨重的发车逻辑（TCP 连接池）已经被全局共享。
