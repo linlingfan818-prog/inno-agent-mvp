@@ -66,6 +66,22 @@ def initialize_llm(custom_api_key: str = None, model_source: str = "default") ->
         mounts=mounts,
         timeout=httpx.Timeout(60.0, read=600.0)
     )
+    
+    async_mounts = {}
+    async_mounts["http://api.llm-incubator.automotive.cloud"] = httpx.AsyncHTTPTransport(verify=False)
+    async_mounts["https://api.llm-incubator.automotive.cloud"] = httpx.AsyncHTTPTransport(verify=False)
+    async_mounts["http://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.AsyncHTTPTransport(verify=False)
+    async_mounts["https://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.AsyncHTTPTransport(verify=False)
+    
+    if http_proxy_url:
+        async_mounts["http://"] = httpx.AsyncHTTPTransport(proxy=http_proxy_url, verify=False)
+    if https_proxy_url:
+        async_mounts["https://"] = httpx.AsyncHTTPTransport(proxy=https_proxy_url, verify=False)
+
+    http_async_client = httpx.AsyncClient(
+        mounts=async_mounts,
+        timeout=httpx.Timeout(60.0, read=600.0)
+    )
 
     print(f"🚀 [Core] 正在加载云端模型实例: {model_name} (Source: {model_source})")
 
@@ -80,6 +96,7 @@ def initialize_llm(custom_api_key: str = None, model_source: str = "default") ->
         temperature=0.0,
         streaming=True,
         http_client=http_client,
+        http_async_client=http_async_client,
         default_headers=custom_headers  # 👈 框架级护甲，杜绝 bind_tools 丢失 Headers
     )
 
