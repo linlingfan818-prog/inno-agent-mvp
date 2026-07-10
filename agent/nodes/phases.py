@@ -173,7 +173,8 @@ async def coach_node(state: AgentState, config: RunnableConfig):
     sys_msg = SystemMessage(content=sys_content)
     
     api_key = config.get("configurable", {}).get("api_key")
-    llm = initialize_llm(custom_api_key=api_key)
+    model_source = config.get("configurable", {}).get("model_source", "default")
+    llm = initialize_llm(custom_api_key=api_key, model_source=model_source)
     
     llm_with_tools = llm.bind_tools([TransitionToPM, TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
@@ -195,7 +196,8 @@ async def pm_node(state: AgentState, config: RunnableConfig):
     sys_msg = SystemMessage(content=sys_content)
     
     api_key = config.get("configurable", {}).get("api_key")
-    llm = initialize_llm(custom_api_key=api_key)
+    model_source = config.get("configurable", {}).get("model_source", "default")
+    llm = initialize_llm(custom_api_key=api_key, model_source=model_source)
     
     llm_with_tools = llm.bind_tools([TransitionToValue, TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
@@ -217,7 +219,8 @@ async def value_node(state: AgentState, config: RunnableConfig):
     sys_msg = SystemMessage(content=sys_content)
     
     api_key = config.get("configurable", {}).get("api_key")
-    llm = initialize_llm(custom_api_key=api_key)
+    model_source = config.get("configurable", {}).get("model_source", "default")
+    llm = initialize_llm(custom_api_key=api_key, model_source=model_source)
     
     llm_with_tools = llm.bind_tools([SaveValueCanvas, TransitionToExpert, TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
@@ -239,7 +242,8 @@ async def expert_node(state: AgentState, config: RunnableConfig):
     sys_msg = SystemMessage(content=sys_content)
     
     api_key = config.get("configurable", {}).get("api_key")
-    llm = initialize_llm(custom_api_key=api_key)
+    model_source = config.get("configurable", {}).get("model_source", "default")
+    llm = initialize_llm(custom_api_key=api_key, model_source=model_source)
     
     llm_with_tools = llm.bind_tools([SaveTechCanvas, TransitionToDone, TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact])
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
@@ -270,7 +274,8 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
     report_type_name_en = "Value" if "商业" in report_type_name else "Tech"
     
     api_key = config.get("configurable", {}).get("api_key")
-    llm = initialize_llm(custom_api_key=api_key)
+    model_source = config.get("configurable", {}).get("model_source", "default")
+    llm = initialize_llm(custom_api_key=api_key, model_source=model_source)
     
     # 1. 运行大模型生成 Markdown
     # ⚠️关键修复：为了彻底避免大模型在聊天上下文中产生“寒暄”或因为多轮对话格式要求导致 VertexAI 报错，

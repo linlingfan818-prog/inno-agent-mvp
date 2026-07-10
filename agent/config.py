@@ -7,27 +7,43 @@ import httpx
 # 1. 显式加载环境变量
 load_dotenv()
 
-def initialize_llm(custom_api_key: str = None) -> ChatOpenAI:
+def initialize_llm(custom_api_key: str = None, model_source: str = "default") -> ChatOpenAI:
     """
     通过 default_headers 双保险焊死必填网关请求头的终极连接器
     """
-    base_url = os.getenv("LLM_BASE_URL")      
     api_key = custom_api_key        
-    model_name = os.getenv("LLM_MODEL_NAME")    
-
+    
     if not api_key:
         raise ValueError("API Key 不能为空，请先在左侧配置！")
 
-    if not all([base_url, model_name]):
-        raise ValueError("❌ 错误: .env 文件中缺少大模型网关基础配置")
+    # 根据模型来源决定配置
+    if model_source.startswith("VIO:"):
+        base_url = os.getenv("LLM_VIO_BASE_URL", "https://contivity.aws3116.ec1.aws.automotive.cloud:446")
+        
+        # 后端留存可用模型记录：
+        # VIO:Claude 4.6 Sonnet, VIO:DeepSeek V4 Pro, VIO:Gemini 2.5 Pro, VIO:GPT-4o, 
+        # VIO:GPT-5, VIO:Llama3 405B, VIO:Mistral Large 2, VIO:Qwen 3.5 235B 等
+        model_name = model_source
+        
+        custom_headers = {
+            "Authorization": f"{api_key if 'Bearer' in api_key else 'Bearer ' + api_key}",
+            "Content-Type": "application/json"
+        }
+    else:
+        # 默认使用原有的 LLM Incubator
+        base_url = os.getenv("LLM_BASE_URL")      
+        model_name = os.getenv("LLM_MODEL_NAME")    
+        
+        if not all([base_url, model_name]):
+            raise ValueError("❌ 错误: .env 文件中缺少大模型网关基础配置")
 
-    # 🌟 核心硬性条件：缺一不可的全家桶防线
-    custom_headers = {
-        "Authorization": f"{api_key if 'Bearer' in api_key else 'Bearer ' + api_key}",
-        "X-LLMI-API-URL": "https://api.llm-incubator.automotive.cloud/dev/v0",
-        "X-Application-Name": "example-app",  # 生产内网审计必填项
-        "Content-Type": "application/json"
-    }
+        # 🌟 核心硬性条件：缺一不可的全家桶防线
+        custom_headers = {
+            "Authorization": f"{api_key if 'Bearer' in api_key else 'Bearer ' + api_key}",
+            "X-LLMI-API-URL": "https://api.llm-incubator.automotive.cloud/dev/v0",
+            "X-Application-Name": "example-app",  # 生产内网审计必填项
+            "Content-Type": "application/json"
+        }
 
     # 2. 纯净代理挂载逻辑
     http_proxy_url = os.getenv("HTTP_PROXY", "http://127.0.0.1:3128")
@@ -36,6 +52,8 @@ def initialize_llm(custom_api_key: str = None) -> ChatOpenAI:
     mounts = {}
     mounts["http://api.llm-incubator.automotive.cloud"] = httpx.HTTPTransport(verify=False)
     mounts["https://api.llm-incubator.automotive.cloud"] = httpx.HTTPTransport(verify=False)
+    mounts["http://contivity.aws3116.ec1.aws.automotive.cloud"] = httpx.HTTPTransport(verify=False)
+    mounts["https://contivity.aws3116.ec1.aws.automotive.cloud"] = httpx.HTTPTransport(verify=False)
     
     if http_proxy_url:
         mounts["http://"] = httpx.HTTPTransport(proxy=http_proxy_url, verify=False)
@@ -48,7 +66,7 @@ def initialize_llm(custom_api_key: str = None) -> ChatOpenAI:
         timeout=httpx.Timeout(60.0, read=600.0)
     )
 
-    print(f"🚀 [Core] 正在加载云端模型实例: {model_name}")
+    print(f"🚀 [Core] 正在加载云端模型实例: {model_name} (Source: {model_source})")
 
     # 4. 🌟【大双保险重构】
     # 我们不仅在 http_client 里带上 headers，

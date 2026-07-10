@@ -22,8 +22,8 @@ def _normalize_how_data(how_data):
         }
     return how_data
 
-async def dual_channel_stream(user_message: str, session_id: str, api_key: str = None, username: str = None, language: str = "zh"):
-    config = {"configurable": {"thread_id": session_id, "api_key": api_key, "username": username or "anonymous", "language": language}}
+async def dual_channel_stream(user_message: str, session_id: str, api_key: str = None, username: str = None, language: str = "zh", model_source: str = "default"):
+    config = {"configurable": {"thread_id": session_id, "api_key": api_key, "username": username or "anonymous", "language": language, "model_source": model_source}}
     inputs = {"messages": [("user", user_message)]}
 
     try:
@@ -54,7 +54,7 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
             # 首轮对话生成标题
             if is_first_message:
                 try:
-                    llm_title = initialize_llm(custom_api_key=api_key)
+                    llm_title = initialize_llm(custom_api_key=api_key, model_source=model_source)
                     if language == "en":
                         prompt = f"Please summarize the following sentence into a very short English title of 3-6 words, without any punctuation. The title MUST be in English:\n{user_message}"
                         default_title = "New Chat"
@@ -158,7 +158,7 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
 @router.post("/chat")
 async def chat_endpoint(payload: ChatPayload):
     return StreamingResponse(
-        dual_channel_stream(payload.message, payload.session_id, payload.api_key, payload.username, payload.language), 
+        dual_channel_stream(payload.message, payload.session_id, payload.api_key, payload.username, payload.language, payload.model_source), 
         media_type="text/event-stream",
         headers={
             "X-Accel-Buffering": "no",
@@ -213,7 +213,7 @@ async def get_history(session_id: str):
 @router.post("/check-key")
 async def check_api_key(payload: CheckKeyPayload):
     try:
-        llm = initialize_llm(payload.api_key)
+        llm = initialize_llm(payload.api_key, payload.model_source)
         # 用一句话测试大模型连通性
         await llm.ainvoke("ping")
         return {"status": "success", "message": "API Key 验证通过！连接正常。"}
