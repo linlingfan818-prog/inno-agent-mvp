@@ -78,7 +78,7 @@ def initialize_llm(custom_api_key: str = None, model_source: str = "default") ->
         custom_headers = {
             "Authorization": f"{api_key if 'Bearer' in api_key else 'Bearer ' + api_key}",
             "X-LLMI-API-URL": "https://api.llm-incubator.automotive.cloud/dev/v0",
-            "X-Application-Name": "example-app",  # 生产内网审计必填项
+            "X-Application-Name": "innoflow-agent",  # 生产内网审计必填项
             "Content-Type": "application/json"
         }
 
