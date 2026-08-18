@@ -18,7 +18,7 @@ def _create_openai_client() -> OpenAI:
     custom_headers = {
         "Authorization": f"{api_key if 'Bearer' in api_key else 'Bearer ' + api_key}",
         "X-LLMI-API-URL": "https://api.llm-incubator.automotive.cloud/dev/v0",
-        "X-Application-Name": "innoflow-agent",
+        "X-Application-Token": "gAAAAABqg_M4mT1C3vxGp0xfmj2j4PiNefq_8DtWy3Fbgmh6aLL0Ab4y1z6AWCWsEcoCfpVCJZu68Kcbzk0v0ZM210bUXL1yapVg2mGyVHjpEMqSnjO3GuA=",
         "Content-Type": "application/json"
     }
 
