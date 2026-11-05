@@ -78,7 +78,7 @@ def initialize_llm(custom_api_key: str = None, model_source: str = "default") ->
         custom_headers = {
             "Authorization": f"{api_key if 'Bearer' in api_key else 'Bearer ' + api_key}",
             "X-LLMI-API-URL": "https://api.llm-incubator.automotive.cloud/dev/v0",
-            "X-Application-Token": "gAAAAABqg_M4mT1C3vxGp0xfmj2j4PiNefq_8DtWy3Fbgmh6aLL0Ab4y1z6AWCWsEcoCfpVCJZu68Kcbzk0v0ZM210bUXL1yapVg2mGyVHjpEMqSnjO3GuA=",  # 生产内网审计必填项
+            "X-Application-Token": "gAAAAABq6sET5GbqX8isXnhIVqI6DCt0NX2qkV2YTevBUWQAZ55u8revPEVi9xOn3RoU-0huXbkmffRkck3FZSGwK5efiJ-1iNlV44D-n8Eg0WLxzyAU0Ww=",  # 生产内网审计必填项
             "Content-Type": "application/json"
         }
 
