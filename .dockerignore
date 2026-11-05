@@ -1,0 +1,8 @@
+# 运行时通过 volume 挂载（docker-compose.yml: .:/app），不需要打进镜像
+.git
+.env
+checkpoints.sqlite*
+static/reports/
+_archive/
+__pycache__/
+*.pyc

@@ -1,4 +1,7 @@
 import json
+import traceback
+
+import aiosqlite
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessageChunk
@@ -8,6 +11,10 @@ from schemas import ChatPayload, CheckKeyPayload
 from agent.config import initialize_llm
 
 router = APIRouter()
+
+PHASE_NODES = ["coach_node", "pm_node", "value_node", "expert_node"]
+# 推送给前端 / 历史接口返回的画布字段
+CANVAS_FIELDS = ["why", "what", "market_value", "value_amount", "how"]
 
 def _normalize_how_data(how_data):
     if not isinstance(how_data, dict):
@@ -32,22 +39,13 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
             compiled_graph = workflow.compile(checkpointer=checkpointer)
             
             # 初始化当前状态，避免 checkpointer 延迟导致读不到最新状态
-            current_state_data = {
-                "current_phase": "COACH",
-                "why": None,
-                "what": None,
-                "market_value": None,
-                "how": None
-            }
+            current_state_data = {"current_phase": "COACH", **{k: None for k in CANVAS_FIELDS}}
             initial_state = await compiled_graph.aget_state(config)
             is_first_message = True
             if initial_state and initial_state.values:
                 current_state_data["current_phase"] = initial_state.values.get("current_phase", "COACH")
-                current_state_data["why"] = initial_state.values.get("why")
-                current_state_data["what"] = initial_state.values.get("what")
-                current_state_data["market_value"] = initial_state.values.get("market_value")
-                current_state_data["value_amount"] = initial_state.values.get("value_amount")
-                current_state_data["how"] = initial_state.values.get("how")
+                for k in CANVAS_FIELDS:
+                    current_state_data[k] = initial_state.values.get(k)
                 if len(initial_state.values.get("messages", [])) > 0:
                     is_first_message = False
 
@@ -72,16 +70,11 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                     err_title = "New Business Discussion" if language == "en" else "新业务探讨"
                     yield f"event: title_update\ndata: {json.dumps({'title': err_title}, ensure_ascii=False)}\n\n"
             
-            current_running_node = None
             hide_stream_buffer = ""
-            
+
             async for event in compiled_graph.astream_events(inputs, config=config, version="v2"):
                 kind = event["event"]
                 node_name = event.get("name", "")
-
-                # 跟踪当前正在运行的 LangGraph 节点
-                if kind == "on_chain_start" and node_name in ["coach_node", "pm_node", "value_node", "expert_node", "report_node"]:
-                    current_running_node = node_name
 
                 # 通道A：文字打字机流
                 if kind == "on_chat_model_stream":
@@ -109,44 +102,26 @@ async def dual_channel_stream(user_message: str, session_id: str, api_key: str =
                         yield ": keepalive\n\n"
                         continue
                         
-                    # 报告节点的内部推理（如果模型没按规范调用Tool而是直接输出JSON）不需要在前端打字机显示
-                    if current_running_node != "report_node":
-                        chunk = event["data"]["chunk"]
-                        if isinstance(chunk, AIMessageChunk) and chunk.content:
-                            data = json.dumps({"chunk": chunk.content}, ensure_ascii=False)
-                            yield f"event: message\ndata: {data}\n\n"
+                    chunk = event["data"]["chunk"]
+                    if isinstance(chunk, AIMessageChunk) and chunk.content:
+                        data = json.dumps({"chunk": chunk.content}, ensure_ascii=False)
+                        yield f"event: message\ndata: {data}\n\n"
 
                 # 通道B：推送最新的状态 (包含当前阶段和最后生成的数据)
                 # 注意：LangGraph 节点的结束事件是 on_chain_end，不是 on_node_end！
-                elif kind == "on_chain_end" and node_name in ["coach_node", "pm_node", "value_node", "expert_node", "report_node"]:
+                elif kind == "on_chain_end" and node_name in PHASE_NODES:
                     # 不要在这里依赖 aget_state()，因为当前 superstep 未结束，checkpoint 还未落盘，会有延迟
                     # 我们直接从当前节点的输出中提取最新的状态进行覆盖
                     output = event.get("data", {}).get("output", {})
                     if isinstance(output, dict):
-                        if "current_phase" in output:
-                            current_state_data["current_phase"] = output["current_phase"]
-                        if "why" in output:
-                            current_state_data["why"] = output["why"]
-                        if "what" in output:
-                            current_state_data["what"] = output["what"]
-                        if "market_value" in output:
-                            current_state_data["market_value"] = output["market_value"]
-                        if "value_amount" in output:
-                            current_state_data["value_amount"] = output["value_amount"]
+                        for k in ["current_phase"] + CANVAS_FIELDS:
+                            if k in output:
+                                current_state_data[k] = output[k]
                         if "how" in output:
                             current_state_data["how"] = _normalize_how_data(output["how"])
-                            
-                    # 推送最新状态到前端
-                    # 如果是报告节点完成，因为它是非流式的，我们需要手动把它的结果作为 message 推给前端
-                    if node_name == "report_node":
-                        messages = output.get("messages", []) if isinstance(output, dict) else []
-                        if messages and getattr(messages[-1], "type", "") == "ai":
-                            data = json.dumps({"chunk": getattr(messages[-1], "content", "")}, ensure_ascii=False)
-                            yield f"event: message\ndata: {data}\n\n"
 
                     yield f"event: state_update\ndata: {json.dumps(current_state_data, ensure_ascii=False)}\n\n"
     except Exception as e:
-        import traceback
         err_str = traceback.format_exc()
         print(f"❌ [Stream Error]:\n{err_str}", flush=True)
         # 把报错直接显示在前端，方便一眼看出死因
@@ -197,14 +172,12 @@ async def get_history(session_id: str):
                 "name": getattr(msg, "name", None)
             })
             
+        canvas = {k: state.values.get(k) for k in CANVAS_FIELDS}
+        canvas["how"] = _normalize_how_data(canvas["how"])
         return {
             "session_id": session_id,
             "current_phase": state.values.get("current_phase", "COACH"),
-            "why": state.values.get("why"),
-            "what": state.values.get("what"),
-            "market_value": state.values.get("market_value"),
-            "value_amount": state.values.get("value_amount"),
-            "how": _normalize_how_data(state.values.get("how")),
+            **canvas,
             "messages": messages
         }
     except Exception as e:
@@ -219,8 +192,6 @@ async def check_api_key(payload: CheckKeyPayload):
         return {"status": "success", "message": "API Key 验证通过！连接正常。"}
     except Exception as e:
         return {"status": "error", "message": f"连接失败: {str(e)}"}
-
-import aiosqlite
 
 @router.delete("/history/{session_id}")
 async def delete_session(session_id: str):

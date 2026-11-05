@@ -1,10 +1,15 @@
 import os
-from langchain_core.messages import SystemMessage, ToolMessage
+import re
+import urllib.parse
+import uuid
+
+import httpx
+import markdown
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from pydantic import BaseModel, Field
 from langchain_core.runnables.config import RunnableConfig
 from agent.state import AgentState
 from agent.config import initialize_llm
-import markdown
 
 # --- Phase Transition Tools ---
 # These are the tools the LLM can call to trigger a state transition after user confirmation.
@@ -167,105 +172,51 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
     return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 错误：无法在当前阶段({current_phase})调用工具 {t_name}，或者参数错误。请勿再尝试调用此工具，直接回复用户。"), {}
 
 
-async def coach_node(state: AgentState, config: RunnableConfig):
-    language = config.get("configurable", {}).get("language", "zh")
-    sys_content = get_sys_prompt("coach.md", language)
-    sys_msg = SystemMessage(content=sys_content)
-    
-    api_key = config.get("configurable", {}).get("api_key")
-    model_source = config.get("configurable", {}).get("model_source", "default")
-    llm = initialize_llm(custom_api_key=api_key, model_source=model_source)
-    
-    llm_with_tools = llm.bind_tools([TransitionToPM, TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact])
-    response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
-    
-    if response.tool_calls:
-        tool_messages = []
-        state_updates = {}
-        for tc in response.tool_calls:
-            msg, updates = await process_single_tool(tc, state, config, "COACH")
-            tool_messages.append(msg)
-            state_updates.update(updates)
-        return {"messages": [response] + tool_messages, **state_updates}
-        
-    return {"messages": [response]}
+# 各阶段共用的工具（时空穿梭、报告生成、冲突检测）
+_COMMON_TOOLS = [TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact]
 
-async def pm_node(state: AgentState, config: RunnableConfig):
-    language = config.get("configurable", {}).get("language", "zh")
-    sys_content = get_sys_prompt("pm.md", language)
-    sys_msg = SystemMessage(content=sys_content)
-    
-    api_key = config.get("configurable", {}).get("api_key")
-    model_source = config.get("configurable", {}).get("model_source", "default")
-    llm = initialize_llm(custom_api_key=api_key, model_source=model_source)
-    
-    llm_with_tools = llm.bind_tools([TransitionToValue, TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact])
-    response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
-    
-    if response.tool_calls:
-        tool_messages = []
-        state_updates = {}
-        for tc in response.tool_calls:
-            msg, updates = await process_single_tool(tc, state, config, "PM")
-            tool_messages.append(msg)
-            state_updates.update(updates)
-        return {"messages": [response] + tool_messages, **state_updates}
-        
-    return {"messages": [response]}
 
-async def value_node(state: AgentState, config: RunnableConfig):
+async def _run_phase(state: AgentState, config: RunnableConfig, prompt_file: str, phase_tools: list, phase_name: str):
+    """四个阶段节点的公共逻辑：加载提示词 → 绑定工具调用 LLM → 处理工具调用。"""
     language = config.get("configurable", {}).get("language", "zh")
-    sys_content = get_sys_prompt("value.md", language)
-    sys_msg = SystemMessage(content=sys_content)
-    
-    api_key = config.get("configurable", {}).get("api_key")
-    model_source = config.get("configurable", {}).get("model_source", "default")
-    llm = initialize_llm(custom_api_key=api_key, model_source=model_source)
-    
-    llm_with_tools = llm.bind_tools([SaveValueCanvas, TransitionToExpert, TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact])
-    response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
-    
-    if response.tool_calls:
-        tool_messages = []
-        state_updates = {}
-        for tc in response.tool_calls:
-            msg, updates = await process_single_tool(tc, state, config, "VALUE")
-            tool_messages.append(msg)
-            state_updates.update(updates)
-        return {"messages": [response] + tool_messages, **state_updates}
-        
-    return {"messages": [response]}
+    sys_msg = SystemMessage(content=get_sys_prompt(prompt_file, language))
 
-async def expert_node(state: AgentState, config: RunnableConfig):
-    language = config.get("configurable", {}).get("language", "zh")
-    sys_content = get_sys_prompt("expert.md", language)
-    sys_msg = SystemMessage(content=sys_content)
-    
     api_key = config.get("configurable", {}).get("api_key")
     model_source = config.get("configurable", {}).get("model_source", "default")
     llm = initialize_llm(custom_api_key=api_key, model_source=model_source)
-    
-    llm_with_tools = llm.bind_tools([SaveTechCanvas, TransitionToDone, TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact])
+
+    llm_with_tools = llm.bind_tools(phase_tools + _COMMON_TOOLS)
     response = await llm_with_tools.ainvoke([sys_msg] + state["messages"])
-    
+
     if response.tool_calls:
         tool_messages = []
         state_updates = {}
-        # Support FINISHED phase chatting directly with expert_node
-        phase_name = state.get("current_phase", "EXPERT")
         for tc in response.tool_calls:
             msg, updates = await process_single_tool(tc, state, config, phase_name)
             tool_messages.append(msg)
             state_updates.update(updates)
         return {"messages": [response] + tool_messages, **state_updates}
-        
+
     return {"messages": [response]}
 
-import urllib.parse
-from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
-import uuid
-import re
-import httpx
+
+# 节点函数名保持不变：workflow.py 和 api/chat.py 都按这些名字匹配节点
+async def coach_node(state: AgentState, config: RunnableConfig):
+    return await _run_phase(state, config, "coach.md", [TransitionToPM], "COACH")
+
+
+async def pm_node(state: AgentState, config: RunnableConfig):
+    return await _run_phase(state, config, "pm.md", [TransitionToValue], "PM")
+
+
+async def value_node(state: AgentState, config: RunnableConfig):
+    return await _run_phase(state, config, "value.md", [SaveValueCanvas, TransitionToExpert], "VALUE")
+
+
+async def expert_node(state: AgentState, config: RunnableConfig):
+    # FINISHED 阶段也由 expert_node 承接对话，所以阶段名取自当前状态
+    return await _run_phase(state, config, "expert.md", [SaveTechCanvas, TransitionToDone], state.get("current_phase", "EXPERT"))
+
 
 async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfig, prompt: str, report_type_name: str) -> str:
     """Helper function to generate Markdown from prompt and upload it."""

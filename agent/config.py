@@ -1,5 +1,4 @@
 import os
-import traceback
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 import httpx
@@ -15,29 +14,28 @@ load_dotenv()
 http_proxy_url = os.getenv("HTTP_PROXY", "http://127.0.0.1:3128")
 https_proxy_url = os.getenv("HTTPS_PROXY", "http://127.0.0.1:3128")
 
-# 1. 同步请求用的 Mounts 规则
-_mounts = {}
-_mounts["http://api.llm-incubator.automotive.cloud"] = httpx.HTTPTransport(verify=False)
-_mounts["https://api.llm-incubator.automotive.cloud"] = httpx.HTTPTransport(verify=False)
-_mounts["http://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.HTTPTransport(verify=False)
-_mounts["https://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.HTTPTransport(verify=False)
+# 公司网关走直连并跳过 SSL 校验（内网中间人证书），其余流量走代理
+_DIRECT_HOSTS = [
+    "api.llm-incubator.automotive.cloud",
+    "contivity.aws3116.ec1.aws.automotive.cloud:446",
+]
 
-if http_proxy_url:
-    _mounts["http://"] = httpx.HTTPTransport(proxy=http_proxy_url, verify=False)
-if https_proxy_url:
-    _mounts["https://"] = httpx.HTTPTransport(proxy=https_proxy_url, verify=False)
 
-# 2. 异步请求用的 Mounts 规则
-_async_mounts = {}
-_async_mounts["http://api.llm-incubator.automotive.cloud"] = httpx.AsyncHTTPTransport(verify=False)
-_async_mounts["https://api.llm-incubator.automotive.cloud"] = httpx.AsyncHTTPTransport(verify=False)
-_async_mounts["http://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.AsyncHTTPTransport(verify=False)
-_async_mounts["https://contivity.aws3116.ec1.aws.automotive.cloud:446"] = httpx.AsyncHTTPTransport(verify=False)
+def _build_mounts(transport_cls):
+    mounts = {}
+    for host in _DIRECT_HOSTS:
+        mounts[f"http://{host}"] = transport_cls(verify=False)
+        mounts[f"https://{host}"] = transport_cls(verify=False)
+    if http_proxy_url:
+        mounts["http://"] = transport_cls(proxy=http_proxy_url, verify=False)
+    if https_proxy_url:
+        mounts["https://"] = transport_cls(proxy=https_proxy_url, verify=False)
+    return mounts
 
-if http_proxy_url:
-    _async_mounts["http://"] = httpx.AsyncHTTPTransport(proxy=http_proxy_url, verify=False)
-if https_proxy_url:
-    _async_mounts["https://"] = httpx.AsyncHTTPTransport(proxy=https_proxy_url, verify=False)
+
+# 1. 同步 / 2. 异步请求用的 Mounts 规则
+_mounts = _build_mounts(httpx.HTTPTransport)
+_async_mounts = _build_mounts(httpx.AsyncHTTPTransport)
 
 # 3. 创建全局单例客户端实例
 GLOBAL_HTTP_CLIENT = httpx.Client(mounts=_mounts, timeout=httpx.Timeout(60.0, read=600.0))

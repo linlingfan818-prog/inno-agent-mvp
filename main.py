@@ -22,7 +22,6 @@ async def serve_frontend():
 
 @app.get("/api/download")
 async def download_file(file: str):
-    import urllib.parse
     # The file query param will be automatically URL-decoded by FastAPI
     # Ensure it doesn't try to access directories outside static/reports
     safe_file = os.path.basename(file)

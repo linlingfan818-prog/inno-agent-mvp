@@ -31,3 +31,9 @@ Thumbs.db
 *.sqlite3
 *.db
 *.sqlite-journal
+
+# 剥离出的废料 / 历史产物，不进版本管理
+_archive/
+
+# 运行时生成的报告
+static/reports/
