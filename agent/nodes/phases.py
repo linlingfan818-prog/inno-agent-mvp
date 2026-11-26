@@ -65,6 +65,18 @@ class GenerateTechReport(BaseModel):
     """【生成技术路径报告工具】：当用户选择生成技术路径报告时调用此工具。此工具【不会】导致阶段跳转，仅生成报告。"""
     additional_instructions: str = Field(description="用户补充的生成要求(如有)")
 
+class GeneratePRD(BaseModel):
+    """【生成产品需求文档(PRD)工具】：当用户要求生成 PRD / 产品需求文档时调用此工具。此工具【不会】导致阶段跳转，仅生成文档。"""
+    additional_instructions: str = Field(description="用户补充的生成要求(如有)")
+
+
+# 报告类型：zh 用于中文展示和本地文件名，en 用于英文展示，slug 用于上传外部后台的纯英文文件名
+REPORT_TYPES = {
+    "value": {"zh": "商业价值报告", "en": "Value Report", "slug": "Value"},
+    "tech": {"zh": "技术路径报告", "en": "Tech Report", "slug": "Tech"},
+    "prd": {"zh": "产品需求文档", "en": "PRD", "slug": "PRD"},
+}
+
 # Helper to read prompts
 def get_sys_prompt(filename: str, language: str = "zh") -> str:
     prompt_path = os.path.join(os.path.dirname(__file__), "..", "prompts", filename)
@@ -101,7 +113,7 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
             extra = args.get("additional_instructions", "")
             if extra: prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应包含：1. 业务背景与核心痛点 2. 创新产品形态 3. 市场规模与商业潜力分析 4. 竞品对标与竞争壁垒 5. 预期量化收益与ROI评估。"
-            result_msg = await _generate_markdown_and_upload(state, config, prompt, "商业价值报告")
+            result_msg = await _generate_markdown_and_upload(state, config, prompt, "value")
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 商业价值报告生成成功：\n{result_msg}\n【系统强制指令】：报告已生成并保存。你在接下来的回复中【绝对不可以】输出报告正文。请告知用户“报告已成功存入后台，随时可以查看和下载”，并抛出选择题询问用户：‘报告已生成，请问您对报告内容是否有补充？如果确认无误，我们可以进入下一阶段。’ 选项必须为：\n[选项A] ✅ 报告没问题，确认进入下一阶段\n[选项B] ✏️ 我需要补充或调整一些内容..."), {}
         except Exception as e:
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
@@ -115,8 +127,24 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
             extra = args.get("additional_instructions", "")
             if extra: prompt += f"【用户的补充要求】：{extra}\n"
             prompt += "报告结构应至少包含：1. 项目背景与痛点深度解析 2. 详细技术方案架构与系统设计 3. 核心算法或关键技术难点 4. 数据安全与合规性 5. 详细的实施路径、资源拆解与风控应对方案。"
-            result_msg = await _generate_markdown_and_upload(state, config, prompt, "技术路径报告")
-            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 技术路径报告生成成功：\n{result_msg}\n【系统强制指令】：报告已生成并保存。你在接下来的回复中【绝对不可以】输出报告正文。请告知用户“技术报告已成功存入后台，随时可以查看和下载”，并抛出选择题询问用户：‘技术报告已生成，请问您对报告内容是否有补充？如果确认无误，我们可以结项。’ 选项必须为：\n[选项A] ✅ 报告没问题，确认结项\n[选项B] ✏️ 我需要补充或调整一些内容..."), {}
+            result_msg = await _generate_markdown_and_upload(state, config, prompt, "tech")
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 技术路径报告生成成功：\n{result_msg}\n【系统强制指令】：报告已生成并保存。你在接下来的回复中【绝对不可以】输出报告正文。请告知用户“技术报告已成功存入后台，随时可以查看和下载”，并抛出选择题询问用户：‘技术报告已生成，请问您对报告内容是否有补充？如果确认无误，我们可以结项。’ 选项必须为：\n[选项A] ✅ 报告没问题，确认结项\n[选项B] 📋 再生成一份《产品需求文档 (PRD)》\n[选项C] ✏️ 我需要补充或调整一些内容..."), {}
+        except Exception as e:
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
+
+    elif t_name == "GeneratePRD":
+        if not state.get("what"):
+            return ToolMessage(tool_call_id=t_id, name=t_name, content="[系统回复] 拦截：无法生成 PRD。因为系统画布中尚未存入产品定义(what)。请引导用户先完成并确认产品形态(What)的探讨（PM 阶段确认后会自动锁定），之后即可生成 PRD。"), {}
+        try:
+            prompt = get_sys_prompt("prd.md")
+            extra = args.get("additional_instructions", "")
+            if extra: prompt += f"\n【用户的补充要求】：{extra}\n"
+            result_msg = await _generate_markdown_and_upload(state, config, prompt, "prd")
+            if current_phase in ("EXPERT", "FINISHED"):
+                next_opts = "[选项A] ✅ PRD 没问题，确认结项\n[选项B] ✏️ 我需要补充或调整一些内容..."
+            else:
+                next_opts = "[选项A] ✅ PRD 没问题，继续当前阶段的探讨\n[选项B] ✏️ 我需要补充或调整一些内容..."
+            return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] PRD 生成成功：\n{result_msg}\n【系统强制指令】：PRD 已生成并保存。你在接下来的回复中【绝对不可以】输出 PRD 正文。请告知用户“PRD 已成功存入后台，随时可以查看和下载”，并提醒：文档中标注【待补充】的内容是讨论中尚未覆盖的部分，后续阶段讨论后可重新生成。然后抛出选择题，选项必须为：\n{next_opts}"), {}
         except Exception as e:
             return ToolMessage(tool_call_id=t_id, name=t_name, content=f"[系统回复] 生成失败：{str(e)}\n请委婉告知用户报错情况。"), {}
 
@@ -173,7 +201,7 @@ async def process_single_tool(tc, state: AgentState, config: RunnableConfig, cur
 
 
 # 各阶段共用的工具（时空穿梭、报告生成、冲突检测）
-_COMMON_TOOLS = [TransitionToPhase, GenerateValueReport, GenerateTechReport, AnalyzeContextImpact]
+_COMMON_TOOLS = [TransitionToPhase, GenerateValueReport, GenerateTechReport, GeneratePRD, AnalyzeContextImpact]
 
 
 async def _run_phase(state: AgentState, config: RunnableConfig, prompt_file: str, phase_tools: list, phase_name: str):
@@ -218,12 +246,33 @@ async def expert_node(state: AgentState, config: RunnableConfig):
     return await _run_phase(state, config, "expert.md", [SaveTechCanvas, TransitionToDone], state.get("current_phase", "EXPERT"))
 
 
-async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfig, prompt: str, report_type_name: str) -> str:
+def _canvas_text(state: AgentState) -> str:
+    """把已锁定的画布数据整理成文本，供 PRD 等需要结构化输入的文档使用。未锁定的字段明确标出。"""
+    how = state.get("how") or {}
+    milestones = how.get("milestones") or {}
+    rows = [
+        ("核心痛点 (Why)", state.get("why")),
+        ("产品形态 (What)", state.get("what")),
+        ("商业价值 (Value)", state.get("market_value")),
+        ("量化价值金额", state.get("value_amount")),
+        ("项目名称", how.get("project_name")),
+        ("技术方案概览", how.get("how_overview")),
+        ("项目范围", how.get("scope")),
+        ("核心目标 (Objective)", how.get("objective")),
+        ("关键结果 (KRs)", how.get("key_results")),
+        ("预算", how.get("cost")),
+    ] + [(f"里程碑 {k}", v) for k, v in milestones.items()]
+    return "\n".join(f"- {name}：{val if val else '（尚未锁定）'}" for name, val in rows)
+
+
+async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfig, prompt: str, report_key: str) -> str:
     """Helper function to generate Markdown from prompt and upload it."""
-    
-    # 映射英文缩写，用于规避第三方后端乱码
-    report_type_name_en = "Value" if "商业" in report_type_name else "Tech"
-    
+
+    report_type = REPORT_TYPES[report_key]
+    report_type_name = report_type["zh"]
+    # 英文缩写，用于规避第三方后端乱码
+    report_type_name_en = report_type["slug"]
+
     api_key = config.get("configurable", {}).get("api_key")
     model_source = config.get("configurable", {}).get("model_source", "default")
     llm = initialize_llm(custom_api_key=api_key, model_source=model_source)
@@ -239,7 +288,10 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
             
     language = config.get("configurable", {}).get("language", "zh")
     end_marker = "— End of Report —" if language == "en" else "— 报告完 —"
-    
+
+    # PRD 依赖各阶段锁定的结论，单独附上画布数据（现有两类报告保持原有输入不变）
+    canvas_block = f"\n【系统画布中已锁定的结论】\n{_canvas_text(state)}\n" if report_key == "prd" else ""
+
     final_prompt = f"""
 【任务目标】
 请你作为一个专业的报告撰写专家，根据以下提供的全部项目讨论记录，撰写一份正式的《{report_type_name}》。
@@ -249,7 +301,7 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
 2. 直接以 `# ` 标题开始输出。
 3. 结尾请以 `{end_marker}` 结束，**绝对不要**在报告末尾包含任何对话选项、提问或类似“[选项A]”的内容。
 4. {prompt}
-
+{canvas_block}
 【历史讨论记录】
 {conversation_text}
 """
@@ -269,10 +321,10 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
         raise Exception("大模型生成了空内容，生成失败。")
         
     # 2. 提取项目名称并清理非法字符以用作文件名
-    project_name_raw = state.get("how", {}).get("project_name", "")
+    project_name_raw = (state.get("how") or {}).get("project_name", "")
     if not project_name_raw:
         # 兜底：如果 how 阶段还没走到，用 what，或者直接叫创新项目
-        project_name_raw = state.get("what", "创新项目")
+        project_name_raw = state.get("what") or "创新项目"
         # 如果太长，截断一下
         if len(project_name_raw) > 20:
             project_name_raw = project_name_raw[:20]
@@ -365,7 +417,7 @@ async def _generate_markdown_and_upload(state: AgentState, config: RunnableConfi
 
     language = config.get("configurable", {}).get("language", "zh")
     if language == "en":
-        report_type_name_display = f"{'Value' if '商业' in report_type_name else 'Tech'} Report"
+        report_type_name_display = report_type["en"]
         msg = f"📄 《{report_type_name_display}》 generation completed.\n\n{upload_status}\n\n👉 Please go to your dedicated data backend system to view the full report."
     else:
         msg = f"📄 《{report_type_name}》已生成完毕。\n\n{upload_status}\n\n👉 请您前往您的专属数据后台系统查看该报告全文。"
